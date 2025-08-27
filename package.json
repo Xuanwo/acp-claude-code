@@ -4,12 +4,38 @@
   "description": "ACP (Agent Client Protocol) bridge for Claude Code",
   "main": "dist/index.js",
   "type": "module",
+  "bin": {
+    "acp-claude-code": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xuanwo/acp-claude-code-polish.git"
+  },
+  "bugs": {
+    "url": "https://github.com/xuanwo/acp-claude-code-polish/issues"
+  },
+  "homepage": "https://github.com/xuanwo/acp-claude-code-polish#readme",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true,
+    "registry": "https://registry.npmjs.org/"
+  },
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "prepublishOnly": "pnpm run build",
+    "prepare": "pnpm run build"
   },
   "keywords": [
     "acp",
@@ -22,7 +48,7 @@
   "license": "MIT",
   "dependencies": {
     "@anthropic-ai/claude-code": "latest",
-    "@zed-industries/agentic-coding-protocol": "^0.0.10"
+    "@zed-industries/agent-client-protocol": "0.1.1"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

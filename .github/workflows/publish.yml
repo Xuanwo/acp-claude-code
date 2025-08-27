@@ -1,0 +1,172 @@
+name: Publish Package
+
+on:
+  push:
+    tags:
+      - 'v*'
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish'
+        required: true
+        type: string
+      tag:
+        description: 'NPM dist tag'
+        required: false
+        default: 'latest'
+        type: choice
+        options:
+          - latest
+          - beta
+          - next
+          - alpha
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write  # Required for signing and provenance
+
+jobs:
+  publish:
+    name: Build and Publish
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run quality checks
+        run: |
+          pnpm typecheck
+          pnpm lint
+          pnpm build
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          elif [ "${{ github.event_name }}" = "release" ]; then
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION="${VERSION#v}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Publishing version: $VERSION"
+
+      - name: Update package version
+        run: |
+          npm version ${{ steps.version.outputs.version }} --no-git-tag-version --allow-same-version
+
+      # Try OIDC first (for public packages on npmjs.org)
+      - name: Publish to npm (with OIDC if available)
+        id: npm-publish
+        continue-on-error: true
+        run: |
+          # Determine dist-tag
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          elif [[ "${{ github.event.release.prerelease }}" == "true" ]]; then
+            TAG="beta"
+          else
+            TAG="latest"
+          fi
+          
+          echo "Publishing with tag: $TAG"
+          
+          # Try publishing with provenance (OIDC)
+          if npm publish --access public --tag "$TAG" --provenance 2>&1; then
+            echo "✅ Published with provenance (OIDC)"
+            echo "published=true" >> $GITHUB_OUTPUT
+            echo "method=oidc" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ OIDC publish failed, will retry with token"
+            echo "published=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Fallback to token-based auth if OIDC fails
+      - name: Publish to npm (with token)
+        if: steps.npm-publish.outputs.published != 'true' && secrets.NPM_TOKEN != ''
+        run: |
+          # Determine dist-tag
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          elif [[ "${{ github.event.release.prerelease }}" == "true" ]]; then
+            TAG="beta"
+          else
+            TAG="latest"
+          fi
+          
+          echo "Publishing with tag: $TAG (using NPM token)"
+          npm publish --access public --tag "$TAG"
+          echo "✅ Published with NPM token"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub Release (if not exists)
+        if: github.event_name != 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: Release v${{ steps.version.outputs.version }}
+          body: |
+            ## Installation
+            ```bash
+            npm install acp-claude-code@${{ steps.version.outputs.version }}
+            ```
+            
+            ${{ steps.npm-publish.outputs.method == 'oidc' && '✅ Published with npm provenance' || '📦 Published to npm' }}
+            
+            ### Changelog
+            See [commits](https://github.com/${{ github.repository }}/commits/v${{ steps.version.outputs.version }})
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.version, 'beta') || contains(steps.version.outputs.version, 'alpha') }}
+
+      - name: Summary
+        run: |
+          echo "## 📦 Package Published" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Package**: acp-claude-code" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Registry**: https://www.npmjs.com/package/acp-claude-code" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.npm-publish.outputs.method }}" = "oidc" ]; then
+            echo "- **Method**: OIDC with provenance ✅" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Method**: NPM Token" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Install" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "npm install acp-claude-code@${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY

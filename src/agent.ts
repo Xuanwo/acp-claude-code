@@ -1,113 +1,296 @@
 import { query } from '@anthropic-ai/claude-code'
-import type {
+import {
   Agent,
   Client,
-  InitializeParams,
+  PROTOCOL_VERSION,
+  InitializeRequest,
   InitializeResponse,
-  SendUserMessageParams
-} from './types.js'
-import type { ClaudeMessage } from './types.js'
-import {
-  convertUserMessageToPrompt,
-  createStreamChunkParams
-} from './converters.js'
+  NewSessionRequest,
+  NewSessionResponse,
+  AuthenticateRequest,
+  PromptRequest,
+  PromptResponse,
+  CancelNotification,
+  LoadSessionRequest,
+  LoadSessionResponse,
+} from '@zed-industries/agent-client-protocol'
+import type { ClaudeMessage, ClaudeStreamEvent } from './types.js'
+
+interface AgentSession {
+  pendingPrompt: AsyncIterableIterator<ClaudeMessage> | null
+  abortController: AbortController | null
+}
 
 export class ClaudeACPAgent implements Agent {
-  private activeQuery: AsyncIterableIterator<ClaudeMessage> | null = null
-  private isAuthenticated = false
+  private sessions: Map<string, AgentSession> = new Map()
   
   constructor(private client: Client) {
     console.error('[ClaudeACPAgent] Initialized with client')
   }
   
-  async initialize(params: InitializeParams): Promise<InitializeResponse> {
+  async initialize(params: InitializeRequest): Promise<InitializeResponse> {
     console.error(`[ClaudeACPAgent] Initialize with protocol version: ${params.protocolVersion}`)
     
-    // Try to check if Claude Code is already authenticated
-    // Claude Code SDK will handle authentication internally
-    try {
-      // The SDK will use the existing Claude Code authentication
-      // (from ~/.claude/config.json or the auth token)
-      this.isAuthenticated = true
-      console.error('[ClaudeACPAgent] Using Claude Code authentication')
-    } catch (error) {
-      console.error('[ClaudeACPAgent] Authentication check failed:', error)
-      this.isAuthenticated = false
+    return {
+      protocolVersion: PROTOCOL_VERSION,
+      agentCapabilities: {
+        loadSession: false,
+      },
     }
+  }
+  
+  async newSession(_params: NewSessionRequest): Promise<NewSessionResponse> {
+    console.error('[ClaudeACPAgent] Creating new session')
+    
+    const sessionId = Math.random().toString(36).substring(2)
+    
+    this.sessions.set(sessionId, {
+      pendingPrompt: null,
+      abortController: null,
+    })
+    
+    console.error(`[ClaudeACPAgent] Created session: ${sessionId}`)
     
     return {
-      isAuthenticated: this.isAuthenticated,
-      protocolVersion: params.protocolVersion
+      sessionId,
     }
   }
   
-  async authenticate(): Promise<void> {
-    console.error('[ClaudeACPAgent] Authenticate called')
-    
-    // Claude Code SDK should handle authentication through its own mechanism
-    // Users should run `claude setup-token` or login through the CLI
-    console.error('[ClaudeACPAgent] Please authenticate using: claude setup-token')
-    
-    // The SDK will handle the actual authentication
-    this.isAuthenticated = true
+  async loadSession?(_params: LoadSessionRequest): Promise<LoadSessionResponse> {
+    console.error('[ClaudeACPAgent] Load session not implemented')
+    throw new Error('Load session not supported')
   }
   
-  async sendUserMessage(params: SendUserMessageParams): Promise<void> {
-    console.error('[ClaudeACPAgent] sendUserMessage called')
+  async authenticate(_params: AuthenticateRequest): Promise<void> {
+    console.error('[ClaudeACPAgent] Authenticate called')
+    // Claude Code SDK handles authentication internally through ~/.claude/config.json
+    // Users should run `claude setup-token` or login through the CLI
+    console.error('[ClaudeACPAgent] Using Claude Code authentication from ~/.claude/config.json')
+  }
+  
+  async prompt(params: PromptRequest): Promise<PromptResponse> {
+    const session = this.sessions.get(params.sessionId)
     
-    // Convert user message chunks to prompt
-    const prompt = convertUserMessageToPrompt(params.chunks)
-    console.error(`[ClaudeACPAgent] Converted prompt: ${prompt.substring(0, 100)}...`)
+    if (!session) {
+      throw new Error(`Session ${params.sessionId} not found`)
+    }
+    
+    console.error(`[ClaudeACPAgent] Processing prompt for session: ${params.sessionId}`)
+    
+    // Cancel any pending prompt
+    if (session.abortController) {
+      session.abortController.abort()
+    }
+    
+    session.abortController = new AbortController()
     
     try {
-      // Start Claude query - the SDK will use existing Claude Code authentication
+      // Convert prompt content blocks to a single string
+      const promptText = params.prompt
+        .filter((block): block is { type: 'text', text: string } => 
+          block.type === 'text'
+        )
+        .map(block => block.text)
+        .join('')
+      
+      console.error(`[ClaudeACPAgent] Prompt: ${promptText.substring(0, 100)}...`)
+      
+      // Start Claude query
       const messages = query({
-        prompt,
+        prompt: promptText,
         options: {
           maxTurns: 10,
           permissionMode: 'default'
-          // The SDK will automatically use the authenticated session
         }
       })
       
-      // Store for potential cancellation
-      this.activeQuery = messages
+      session.pendingPrompt = messages
       
-      // Stream responses back through client
+      // Process messages and send updates
       for await (const message of messages) {
-        console.error(`[ClaudeACPAgent] Received message type: ${message.type}`)
-        
-        // Convert to ACP format and send
-        const chunkParams = createStreamChunkParams(message)
-        if (chunkParams) {
-          await this.client.streamAssistantMessageChunk(chunkParams)
+        if (session.abortController?.signal.aborted) {
+          return { stopReason: 'cancelled' }
         }
         
-        // Handle tool calls if present
-        // Note: toolCalls might not exist on all message types
-        const toolCalls = (message as any).toolCalls
-        if (toolCalls && toolCalls.length > 0) {
-          // For now, we'll skip tool calls
-          console.error('[ClaudeACPAgent] Tool calls detected but not yet implemented')
-        }
+        await this.handleClaudeMessage(params.sessionId, message)
       }
       
-      this.activeQuery = null
-      console.error('[ClaudeACPAgent] Message processing complete')
+      session.pendingPrompt = null
+      
+      return {
+        stopReason: 'end_turn',
+      }
       
     } catch (error) {
-      console.error('[ClaudeACPAgent] Error during message processing:', error)
-      this.activeQuery = null
-      throw error
+      console.error('[ClaudeACPAgent] Error during prompt processing:', error)
+      
+      if (session.abortController?.signal.aborted) {
+        return { stopReason: 'cancelled' }
+      }
+      
+      // Send error to client
+      await this.client.sessionUpdate({
+        sessionId: params.sessionId,
+        update: {
+          sessionUpdate: 'agent_message_chunk',
+          content: {
+            type: 'text',
+            text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        },
+      })
+      
+      return {
+        stopReason: 'end_turn',
+      }
+    } finally {
+      session.pendingPrompt = null
+      session.abortController = null
     }
   }
   
-  async cancelSendMessage(): Promise<void> {
-    console.error('[ClaudeACPAgent] cancelSendMessage called')
+  async cancel(params: CancelNotification): Promise<void> {
+    console.error(`[ClaudeACPAgent] Cancel requested for session: ${params.sessionId}`)
     
-    if (this.activeQuery && this.activeQuery.return) {
-      await this.activeQuery.return()
-      this.activeQuery = null
+    const session = this.sessions.get(params.sessionId)
+    if (session) {
+      session.abortController?.abort()
+      
+      if (session.pendingPrompt && session.pendingPrompt.return) {
+        await session.pendingPrompt.return()
+        session.pendingPrompt = null
+      }
+    }
+  }
+  
+  private async handleClaudeMessage(sessionId: string, message: ClaudeMessage): Promise<void> {
+    console.error(`[ClaudeACPAgent] Handling message type: ${message.type}`)
+    
+    switch (message.type) {
+      case 'text':
+        await this.client.sessionUpdate({
+          sessionId,
+          update: {
+            sessionUpdate: 'agent_message_chunk',
+            content: {
+              type: 'text',
+              text: message.text || '',
+            },
+          },
+        })
+        break
+        
+      case 'tool_use_start':
+        await this.client.sessionUpdate({
+          sessionId,
+          update: {
+            sessionUpdate: 'tool_call',
+            toolCallId: message.id || '',
+            title: message.tool_name || 'Tool',
+            kind: this.mapToolKind(message.tool_name || ''),
+            status: 'pending',
+            rawInput: (message.input || {}) as Record<string, unknown>,
+          },
+        })
+        break
+        
+      case 'tool_use_output':
+        await this.client.sessionUpdate({
+          sessionId,
+          update: {
+            sessionUpdate: 'tool_call_update',
+            toolCallId: message.id || '',
+            status: 'completed',
+            content: [
+              {
+                type: 'content',
+                content: {
+                  type: 'text',
+                  text: message.output || '',
+                },
+              },
+            ],
+            rawOutput: { output: message.output },
+          },
+        })
+        break
+        
+      case 'tool_use_error':
+        await this.client.sessionUpdate({
+          sessionId,
+          update: {
+            sessionUpdate: 'tool_call_update',
+            toolCallId: message.id || '',
+            status: 'failed',
+            content: [
+              {
+                type: 'content',
+                content: {
+                  type: 'text',
+                  text: `Error: ${message.error}`,
+                },
+              },
+            ],
+            rawOutput: { error: message.error },
+          },
+        })
+        break
+        
+      case 'stream_event': {
+        // Handle stream events if needed
+        const event = message.event as ClaudeStreamEvent
+        if (event.type === 'content_block_start' && event.content_block?.type === 'text') {
+          await this.client.sessionUpdate({
+            sessionId,
+            update: {
+              sessionUpdate: 'agent_message_chunk',
+              content: {
+                type: 'text',
+                text: event.content_block.text || '',
+              },
+            },
+          })
+        } else if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
+          await this.client.sessionUpdate({
+            sessionId,
+            update: {
+              sessionUpdate: 'agent_message_chunk',
+              content: {
+                type: 'text',
+                text: event.delta.text || '',
+              },
+            },
+          })
+        }
+        break
+      }
+        
+      default:
+        console.error(`[ClaudeACPAgent] Unhandled message type: ${message.type}`)
+    }
+  }
+  
+  private mapToolKind(toolName: string): 'read' | 'edit' | 'delete' | 'move' | 'search' | 'execute' | 'think' | 'fetch' | 'other' {
+    const lowerName = toolName.toLowerCase()
+    
+    if (lowerName.includes('read') || lowerName.includes('view') || lowerName.includes('get')) {
+      return 'read'
+    } else if (lowerName.includes('write') || lowerName.includes('create') || lowerName.includes('update') || lowerName.includes('edit')) {
+      return 'edit'
+    } else if (lowerName.includes('delete') || lowerName.includes('remove')) {
+      return 'delete'
+    } else if (lowerName.includes('move') || lowerName.includes('rename')) {
+      return 'move'
+    } else if (lowerName.includes('search') || lowerName.includes('find') || lowerName.includes('grep')) {
+      return 'search'
+    } else if (lowerName.includes('run') || lowerName.includes('execute') || lowerName.includes('bash')) {
+      return 'execute'
+    } else if (lowerName.includes('think') || lowerName.includes('plan')) {
+      return 'think'
+    } else if (lowerName.includes('fetch') || lowerName.includes('download')) {
+      return 'fetch'
+    } else {
+      return 'other'
     }
   }
 }

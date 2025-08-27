@@ -1,55 +1,32 @@
-import type {
-  Agent,
-  Client,
-  InitializeParams,
-  InitializeResponse,
-  SendUserMessageParams,
-  UserMessageChunk,
-  AssistantMessageChunk,
-  StreamAssistantMessageChunkParams,
-  PushToolCallParams,
-  PushToolCallResponse,
-  UpdateToolCallParams,
-  RequestToolCallConfirmationParams,
-  RequestToolCallConfirmationResponse,
-  ToolCallId,
-  ToolCallStatus,
-  Icon
-} from '@zed-industries/agentic-coding-protocol'
+// Re-export all types from the agent-client-protocol
+export * from '@zed-industries/agent-client-protocol'
 
-// Claude Code SDK types
+// Claude Code SDK message types
 export interface ClaudeMessage {
-  type: 'system' | 'user' | 'assistant' | 'result'
-  content?: string
-  toolCalls?: any[]
-  metadata?: any
+  type: string
+  text?: string
+  id?: string
+  tool_name?: string
+  input?: unknown
+  output?: string
+  error?: string
+  event?: ClaudeStreamEvent
+}
+
+export interface ClaudeStreamEvent {
+  type: string
+  content_block?: {
+    type: string
+    text?: string
+  }
+  delta?: {
+    type: string
+    text?: string
+  }
 }
 
 export interface ClaudeQueryOptions {
-  sessionId?: string
-  workingDirectory?: string
-  systemPrompt?: string
   maxTurns?: number
-  allowedTools?: string[]
-  permissionMode?: string
-}
-
-// Re-export ACP types for convenience
-export type {
-  Agent,
-  Client,
-  InitializeParams,
-  InitializeResponse,
-  SendUserMessageParams,
-  UserMessageChunk,
-  AssistantMessageChunk,
-  StreamAssistantMessageChunkParams,
-  PushToolCallParams,
-  PushToolCallResponse,
-  UpdateToolCallParams,
-  RequestToolCallConfirmationParams,
-  RequestToolCallConfirmationResponse,
-  ToolCallId,
-  ToolCallStatus,
-  Icon
+  permissionMode?: 'ask_on_edit' | 'ask_always' | 'auto' | 'default'
+  onStatus?: (status: string) => void
 }

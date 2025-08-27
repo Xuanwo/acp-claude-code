@@ -1,0 +1,37 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "04:00"
+    open-pull-requests-limit: 10
+    groups:
+      typescript:
+        patterns:
+          - "typescript"
+          - "@types/*"
+      eslint:
+        patterns:
+          - "eslint"
+          - "@typescript-eslint/*"
+      anthropic:
+        patterns:
+          - "@anthropic-ai/*"
+      zed:
+        patterns:
+          - "@zed-industries/*"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "04:00"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
