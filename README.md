@@ -47,7 +47,7 @@ Add to your Zed configuration:
 
 ```json
 {
-  "agents": {
+  "agent_servers": {
     "claude-code": {
       "command": "npx",
       "args": ["acp-claude-code"]
@@ -60,7 +60,7 @@ Or if you prefer using pnpm:
 
 ```json
 {
-  "agents": {
+  "agent_servers": {
     "claude-code": {
       "command": "pnpx",
       "args": ["acp-claude-code"]
