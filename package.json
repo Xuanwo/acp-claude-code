@@ -17,12 +17,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/xuanwo/acp-claude-code-polish.git"
+    "url": "git+https://github.com/xuanwo/acp-claude-code.git"
   },
   "bugs": {
-    "url": "https://github.com/xuanwo/acp-claude-code-polish/issues"
+    "url": "https://github.com/xuanwo/acp-claude-code/issues"
   },
-  "homepage": "https://github.com/xuanwo/acp-claude-code-polish#readme",
+  "homepage": "https://github.com/xuanwo/acp-claude-code#readme",
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
