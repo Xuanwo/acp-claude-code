@@ -105,8 +105,6 @@ jobs:
           npm publish --access public --tag "$TAG" --provenance
           echo "✅ Published with provenance (OIDC)"
           echo "method=oidc" >> $GITHUB_OUTPUT
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create GitHub Release (if not exists)
         if: github.event_name != 'release'
