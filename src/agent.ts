@@ -23,13 +23,20 @@ interface AgentSession {
 
 export class ClaudeACPAgent implements Agent {
   private sessions: Map<string, AgentSession> = new Map()
+  private DEBUG = process.env.ACP_DEBUG === 'true'
   
   constructor(private client: Client) {
-    console.error('[ClaudeACPAgent] Initialized with client')
+    this.log('Initialized with client')
+  }
+  
+  private log(message: string, ...args: unknown[]) {
+    if (this.DEBUG) {
+      console.error(`[ClaudeACPAgent] ${message}`, ...args)
+    }
   }
   
   async initialize(params: InitializeRequest): Promise<InitializeResponse> {
-    console.error(`[ClaudeACPAgent] Initialize with protocol version: ${params.protocolVersion}`)
+    this.log(`Initialize with protocol version: ${params.protocolVersion}`)
     
     return {
       protocolVersion: PROTOCOL_VERSION,
@@ -40,7 +47,7 @@ export class ClaudeACPAgent implements Agent {
   }
   
   async newSession(_params: NewSessionRequest): Promise<NewSessionResponse> {
-    console.error('[ClaudeACPAgent] Creating new session')
+    this.log('Creating new session')
     
     const sessionId = Math.random().toString(36).substring(2)
     
@@ -49,7 +56,7 @@ export class ClaudeACPAgent implements Agent {
       abortController: null,
     })
     
-    console.error(`[ClaudeACPAgent] Created session: ${sessionId}`)
+    this.log(`Created session: ${sessionId}`)
     
     return {
       sessionId,
@@ -57,15 +64,15 @@ export class ClaudeACPAgent implements Agent {
   }
   
   async loadSession?(_params: LoadSessionRequest): Promise<LoadSessionResponse> {
-    console.error('[ClaudeACPAgent] Load session not implemented')
+    this.log('Load session not implemented')
     throw new Error('Load session not supported')
   }
   
   async authenticate(_params: AuthenticateRequest): Promise<void> {
-    console.error('[ClaudeACPAgent] Authenticate called')
+    this.log('Authenticate called')
     // Claude Code SDK handles authentication internally through ~/.claude/config.json
     // Users should run `claude setup-token` or login through the CLI
-    console.error('[ClaudeACPAgent] Using Claude Code authentication from ~/.claude/config.json')
+    this.log('Using Claude Code authentication from ~/.claude/config.json')
   }
   
   async prompt(params: PromptRequest): Promise<PromptResponse> {
@@ -75,7 +82,7 @@ export class ClaudeACPAgent implements Agent {
       throw new Error(`Session ${params.sessionId} not found`)
     }
     
-    console.error(`[ClaudeACPAgent] Processing prompt for session: ${params.sessionId}`)
+    this.log(`Processing prompt for session: ${params.sessionId}`)
     
     // Cancel any pending prompt
     if (session.abortController) {
@@ -93,7 +100,7 @@ export class ClaudeACPAgent implements Agent {
         .map(block => block.text)
         .join('')
       
-      console.error(`[ClaudeACPAgent] Prompt: ${promptText.substring(0, 100)}...`)
+      this.log(`Prompt: ${promptText.substring(0, 100)}...`)
       
       // Start Claude query
       const messages = query({
@@ -122,7 +129,7 @@ export class ClaudeACPAgent implements Agent {
       }
       
     } catch (error) {
-      console.error('[ClaudeACPAgent] Error during prompt processing:', error)
+      this.log('Error during prompt processing:', error)
       
       if (session.abortController?.signal.aborted) {
         return { stopReason: 'cancelled' }
@@ -150,7 +157,7 @@ export class ClaudeACPAgent implements Agent {
   }
   
   async cancel(params: CancelNotification): Promise<void> {
-    console.error(`[ClaudeACPAgent] Cancel requested for session: ${params.sessionId}`)
+    this.log(`Cancel requested for session: ${params.sessionId}`)
     
     const session = this.sessions.get(params.sessionId)
     if (session) {
@@ -164,9 +171,38 @@ export class ClaudeACPAgent implements Agent {
   }
   
   private async handleClaudeMessage(sessionId: string, message: ClaudeMessage): Promise<void> {
-    console.error(`[ClaudeACPAgent] Handling message type: ${message.type}`)
+    this.log(`Handling message type: ${message.type}`, JSON.stringify(message).substring(0, 200))
     
     switch (message.type) {
+      case 'system':
+        // System messages are internal, don't send to client
+        break
+        
+      case 'assistant':
+        // Handle assistant message from Claude
+        if (message.message && message.message.content) {
+          for (const content of message.message.content) {
+            if (content.type === 'text') {
+              await this.client.sessionUpdate({
+                sessionId,
+                update: {
+                  sessionUpdate: 'agent_message_chunk',
+                  content: {
+                    type: 'text',
+                    text: content.text || '',
+                  },
+                },
+              })
+            }
+          }
+        }
+        break
+        
+      case 'result':
+        // Result message indicates completion
+        this.log('Query completed with result:', message.result)
+        break
+        
       case 'text':
         await this.client.sessionUpdate({
           sessionId,
@@ -266,7 +302,7 @@ export class ClaudeACPAgent implements Agent {
       }
         
       default:
-        console.error(`[ClaudeACPAgent] Unhandled message type: ${message.type}`)
+        this.log(`Unhandled message type: ${message.type}`)
     }
   }
   

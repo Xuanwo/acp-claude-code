@@ -11,6 +11,14 @@ export interface ClaudeMessage {
   output?: string
   error?: string
   event?: ClaudeStreamEvent
+  message?: {
+    content?: Array<{
+      type: string
+      text?: string
+    }>
+  }
+  result?: string
+  subtype?: string
 }
 
 export interface ClaudeStreamEvent {
