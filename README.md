@@ -11,19 +11,34 @@ This project implements an ACP Agent that wraps the Claude Code SDK, providing:
 
 ## Installation
 
+The package is available on npm and can be run directly without installation using `npx` or `pnpx`:
+
 ```bash
-npm install
-npm run build
+# No installation needed! Run directly with npx
+npx acp-claude-code
+
+# Or if you use pnpm
+pnpx acp-claude-code
+```
+
+If you want to specify a particular version:
+
+```bash
+npx acp-claude-code@0.1.0
 ```
 
 ## Usage
 
 ### As an ACP Agent for Zed
 
-Run the agent via stdio (which Zed expects):
+Run the agent using npx or pnpx:
 
 ```bash
-node dist/index.js
+# Using npm's npx
+npx acp-claude-code
+
+# Using pnpm's pnpx
+pnpx acp-claude-code
 ```
 
 ### Configuration in Zed
@@ -34,8 +49,21 @@ Add to your Zed configuration:
 {
   "agents": {
     "claude-code": {
-      "command": "node",
-      "args": ["/path/to/acp-claude-code/dist/index.js"]
+      "command": "npx",
+      "args": ["acp-claude-code"]
+    }
+  }
+}
+```
+
+Or if you prefer using pnpm:
+
+```json
+{
+  "agents": {
+    "claude-code": {
+      "command": "pnpx",
+      "args": ["acp-claude-code"]
     }
   }
 }
@@ -43,15 +71,36 @@ Add to your Zed configuration:
 
 ## Development
 
+### Building from source
+
+If you want to build and run from source instead of using the npm package:
+
+```bash
+# Clone the repository
+git clone https://github.com/xuanwo/acp-claude-code.git
+cd acp-claude-code
+
+# Install dependencies
+pnpm install
+
+# Build the project
+pnpm run build
+
+# Run directly
+node dist/index.js
+```
+
+For development with hot reload:
+
 ```bash
 # Run in development mode
-npm run dev
+pnpm run dev
 
 # Type checking
-npm run typecheck
+pnpm run typecheck
 
 # Build
-npm run build
+pnpm run build
 ```
 
 ## Features
