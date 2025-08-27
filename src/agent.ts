@@ -193,7 +193,7 @@ export class ClaudeACPAgent implements Agent {
                   sessionUpdate: 'agent_message_chunk',
                   content: {
                     type: 'text',
-                    text: content.text || '',
+                    text: (content.text || '') + '\n',
                   },
                 },
               })
@@ -214,7 +214,7 @@ export class ClaudeACPAgent implements Agent {
             sessionUpdate: 'agent_message_chunk',
             content: {
               type: 'text',
-              text: message.text || '',
+              text: (message.text || '') + '\n',
             },
           },
         })
@@ -278,7 +278,7 @@ export class ClaudeACPAgent implements Agent {
                 type: 'content',
                 content: {
                   type: 'text',
-                  text: outputText,
+                  text: outputText + '\n',
                 },
               },
             ],
@@ -332,6 +332,18 @@ export class ClaudeACPAgent implements Agent {
               content: {
                 type: 'text',
                 text: event.delta.text || '',
+              },
+            },
+          })
+        } else if (event.type === 'content_block_stop') {
+          // Add newline when content block ends
+          await this.client.sessionUpdate({
+            sessionId,
+            update: {
+              sessionUpdate: 'agent_message_chunk',
+              content: {
+                type: 'text',
+                text: '\n',
               },
             },
           })
