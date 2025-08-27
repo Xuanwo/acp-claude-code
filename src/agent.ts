@@ -102,12 +102,6 @@ export class ClaudeACPAgent implements Agent {
       
       this.log(`Prompt received (${promptText.length} chars): ${promptText.substring(0, 100)}...`)
       
-      // Log charset information
-      const hasNonAscii = /[^\x00-\x7F]/.test(promptText)
-      if (hasNonAscii) {
-        this.log('Prompt contains non-ASCII characters (likely UTF-8)')
-      }
-      
       // Start Claude query
       const messages = query({
         prompt: promptText,
@@ -240,7 +234,7 @@ export class ClaudeACPAgent implements Agent {
             
             // Special logging for content field
             if (input && typeof input === 'object' && 'content' in input) {
-              const content = (input as any).content
+              const content = (input as Record<string, unknown>).content
               if (typeof content === 'string') {
                 const preview = content.substring(0, 100)
                 this.log(`Content preview: ${preview}${content.length > 100 ? '...' : ''}`)

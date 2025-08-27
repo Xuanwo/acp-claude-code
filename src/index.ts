@@ -19,7 +19,6 @@ async function main() {
   
   try {
     // Prevent any accidental stdout writes that could corrupt the protocol
-    const originalConsoleLog = console.log
     console.log = (...args) => {
       console.error('[WARNING] console.log intercepted:', ...args)
     }
