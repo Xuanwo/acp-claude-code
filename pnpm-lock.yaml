@@ -10,7 +10,7 @@ importers:
     dependencies:
       '@anthropic-ai/claude-code':
         specifier: latest
-        version: 1.0.93
+        version: 1.0.95
       '@zed-industries/agent-client-protocol':
         specifier: 0.1.1
         version: 0.1.1
@@ -28,8 +28,8 @@ importers:
         specifier: 12.0.1
         version: 12.0.1(semantic-release@24.2.0(typescript@5.9.2))
       '@types/node':
-        specifier: ^20.0.0
-        version: 20.19.11
+        specifier: ^24.3.0
+        version: 24.3.0
       '@typescript-eslint/eslint-plugin':
         specifier: ^7.0.0
         version: 7.18.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.2))(eslint@8.57.1)(typescript@5.9.2)
@@ -54,8 +54,8 @@ importers:
 
 packages:
 
-  '@anthropic-ai/claude-code@1.0.93':
-    resolution: {integrity: sha512-HSrbuYVu4k1dwoj/IYsXEVSoMWDPujy2D4zl9BMt4Zt0kwUwZch0nHpTyQ0C+YeHMN7hHbViz0bw6spg0a5GgQ==}
+  '@anthropic-ai/claude-code@1.0.95':
+    resolution: {integrity: sha512-VLwfezJ8vnNpkdUdyMORQ1JXx/C7GFd8MLiJTXXThvMTxhNEr8IhAY/bExNrtdkWx2+aipGocRLgNZrUon9HMw==}
     engines: {node: '>=18.0.0'}
     hasBin: true
 
@@ -456,8 +456,8 @@ packages:
     resolution: {integrity: sha512-tlqY9xq5ukxTUZBmoOp+m61cqwQD5pHJtFY3Mn8CA8ps6yghLH/Hw8UPdqg4OLmFW3IFlcXnQNmo/dh8HzXYIQ==}
     engines: {node: '>=18'}
 
-  '@types/node@20.19.11':
-    resolution: {integrity: sha512-uug3FEEGv0r+jrecvUUpbY8lLisvIjg6AAic6a2bSP5OEOLeJsDSnvhCDov7ipFFMXS3orMpzlmi0ZcuGkBbow==}
+  '@types/node@24.3.0':
+    resolution: {integrity: sha512-aPTXCrfwnDLj4VvXrm+UUCQjNEvJgNA8s5F1cvwQU+3KNltTOkBm1j30uNLyqqPNe7gE3KFzImYoZEfLhp4Yow==}
 
   '@types/normalize-package-data@2.4.4':
     resolution: {integrity: sha512-37i+OaWTh9qeK4LSHPsyRC7NahnGotNuZvjLSgcPzblpHB3rrCJxAOgI5gCdKm7coonsaX1Of0ILiTcnZjbfxA==}
@@ -1775,8 +1775,8 @@ packages:
     engines: {node: '>=0.8.0'}
     hasBin: true
 
-  undici-types@6.21.0:
-    resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
+  undici-types@7.10.0:
+    resolution: {integrity: sha512-t5Fy/nfn+14LuOc2KNYg75vZqClpAiqscVvMygNnlsHBFpSXdJaYtXMcdNLpl/Qvc3P2cB3s6lOV51nqsFq4ag==}
 
   unicode-emoji-modifier-base@1.0.0:
     resolution: {integrity: sha512-yLSH4py7oFH3oG/9K+XWrz1pSi3dfUrWEnInbxMfArOfc1+33BlGPQtLsOYwvdMy11AwUBetYuaRxSPqgkq+8g==}
@@ -1870,7 +1870,7 @@ packages:
 
 snapshots:
 
-  '@anthropic-ai/claude-code@1.0.93':
+  '@anthropic-ai/claude-code@1.0.95':
     optionalDependencies:
       '@img/sharp-darwin-arm64': 0.33.5
       '@img/sharp-darwin-x64': 0.33.5
@@ -2238,9 +2238,9 @@ snapshots:
 
   '@sindresorhus/merge-streams@4.0.0': {}
 
-  '@types/node@20.19.11':
+  '@types/node@24.3.0':
     dependencies:
-      undici-types: 6.21.0
+      undici-types: 7.10.0
 
   '@types/normalize-package-data@2.4.4': {}
 
@@ -3517,7 +3517,7 @@ snapshots:
   uglify-js@3.19.3:
     optional: true
 
-  undici-types@6.21.0: {}
+  undici-types@7.10.0: {}
 
   unicode-emoji-modifier-base@1.0.0: {}
 
