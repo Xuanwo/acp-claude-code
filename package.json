@@ -48,7 +48,7 @@
   "license": "MIT",
   "dependencies": {
     "@anthropic-ai/claude-code": "latest",
-    "@zed-industries/agent-client-protocol": "0.1.1"
+    "@zed-industries/agent-client-protocol": "0.1.2"
   },
   "devDependencies": {
     "@eslint/js": "9.17.0",

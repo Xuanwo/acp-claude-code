@@ -10,10 +10,10 @@ importers:
     dependencies:
       '@anthropic-ai/claude-code':
         specifier: latest
-        version: 1.0.95
+        version: 1.0.96
       '@zed-industries/agent-client-protocol':
-        specifier: 0.1.1
-        version: 0.1.1
+        specifier: 0.1.2
+        version: 0.1.2
     devDependencies:
       '@eslint/js':
         specifier: 9.17.0
@@ -66,8 +66,8 @@ importers:
 
 packages:
 
-  '@anthropic-ai/claude-code@1.0.95':
-    resolution: {integrity: sha512-VLwfezJ8vnNpkdUdyMORQ1JXx/C7GFd8MLiJTXXThvMTxhNEr8IhAY/bExNrtdkWx2+aipGocRLgNZrUon9HMw==}
+  '@anthropic-ai/claude-code@1.0.96':
+    resolution: {integrity: sha512-xnxhYzuh6PYlMcw56REMQiGMW20WaLLOvG8L8TObq70zhNKs3dro7nhYwHRe1c2ubTr20oIJK0aSkyD2BpO8nA==}
     engines: {node: '>=18.0.0'}
     hasBin: true
 
@@ -617,8 +617,8 @@ packages:
     resolution: {integrity: sha512-+GeGMebMCy0elMNg67LRNoVnUFPIm37iu5CmHESVx56/9Jsfdpsvbv605DQ81Pi/x11IdKUsS5nzgTYbCQU9fg==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
 
-  '@zed-industries/agent-client-protocol@0.1.1':
-    resolution: {integrity: sha512-TLVXSyQbKZDVAHWLsgdZyI21pWXApp3MTZ5Ft7o91bd/2Y0w8QClWAVPVFxeA9NTiilJUFGM0JWb8DYLFsEHTQ==}
+  '@zed-industries/agent-client-protocol@0.1.2':
+    resolution: {integrity: sha512-A1RCN7Uf09vngbhBVLiZENenKYOYD2OGiILLGXPaSBloDbem8xmLaDmrKQuYl0kjLJ1DcWmVaHUv97n1l5vJ6w==}
 
   acorn-jsx@5.3.2:
     resolution: {integrity: sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ==}
@@ -1935,7 +1935,7 @@ packages:
 
 snapshots:
 
-  '@anthropic-ai/claude-code@1.0.95':
+  '@anthropic-ai/claude-code@1.0.96':
     optionalDependencies:
       '@img/sharp-darwin-arm64': 0.33.5
       '@img/sharp-darwin-x64': 0.33.5
@@ -2507,7 +2507,7 @@ snapshots:
       '@typescript-eslint/types': 8.41.0
       eslint-visitor-keys: 4.2.1
 
-  '@zed-industries/agent-client-protocol@0.1.1':
+  '@zed-industries/agent-client-protocol@0.1.2':
     dependencies:
       zod: 3.25.76
 
