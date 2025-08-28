@@ -12,9 +12,17 @@ export interface ClaudeMessage {
   error?: string
   event?: ClaudeStreamEvent
   message?: {
+    role?: string
     content?: Array<{
       type: string
       text?: string
+      // For tool_use in assistant messages
+      id?: string
+      name?: string
+      input?: unknown
+      // For tool_result in user messages
+      tool_use_id?: string
+      content?: string
     }>
   }
   result?: string

@@ -242,6 +242,7 @@ export class ClaudeACPAgent implements Agent {
         if (msg.message && msg.message.content) {
           for (const content of msg.message.content) {
             if (content.type === 'text') {
+              // Send text content
               await this.client.sessionUpdate({
                 sessionId,
                 update: {
@@ -250,6 +251,53 @@ export class ClaudeACPAgent implements Agent {
                     type: 'text',
                     text: (content.text || '') + '\n',
                   },
+                },
+              })
+            } else if (content.type === 'tool_use') {
+              // Handle tool call from assistant message
+              this.log(`Tool call detected: ${content.name}`, `ID: ${content.id}`)
+              
+              // Send tool_call notification
+              await this.client.sessionUpdate({
+                sessionId,
+                update: {
+                  sessionUpdate: 'tool_call',
+                  toolCallId: content.id || '',
+                  title: content.name || 'Tool',
+                  kind: this.mapToolKind(content.name || ''),
+                  status: 'pending',
+                  rawInput: content.input as Record<string, unknown>,
+                },
+              })
+            }
+          }
+        }
+        break
+        
+      case 'user':
+        // Handle user message that may contain tool results
+        if (msg.message && msg.message.content) {
+          for (const content of msg.message.content) {
+            if (content.type === 'tool_result') {
+              this.log(`Tool result received for: ${content.tool_use_id}`)
+              
+              // Send tool_call_update with completed status
+              await this.client.sessionUpdate({
+                sessionId,
+                update: {
+                  sessionUpdate: 'tool_call_update',
+                  toolCallId: content.tool_use_id || '',
+                  status: 'completed',
+                  content: [
+                    {
+                      type: 'content',
+                      content: {
+                        type: 'text',
+                        text: (content.content || '') + '\n',
+                      },
+                    },
+                  ],
+                  rawOutput: content.content ? { output: content.content } : undefined,
                 },
               })
             }
