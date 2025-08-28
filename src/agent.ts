@@ -21,11 +21,14 @@ interface AgentSession {
   pendingPrompt: AsyncIterableIterator<SDKMessage> | null
   abortController: AbortController | null
   claudeSessionId?: string  // Claude's actual session_id, obtained after first message
+  permissionMode?: 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan'  // Permission mode for this session
 }
 
 export class ClaudeACPAgent implements Agent {
   private sessions: Map<string, AgentSession> = new Map()
   private DEBUG = process.env.ACP_DEBUG === 'true'
+  private defaultPermissionMode: 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan' = 
+    (process.env.ACP_PERMISSION_MODE as 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan') || 'default'
   
   constructor(private client: Client) {
     this.log('Initialized with client')
@@ -60,6 +63,7 @@ export class ClaudeACPAgent implements Agent {
       pendingPrompt: null,
       abortController: null,
       claudeSessionId: undefined,  // Will be set after first message
+      permissionMode: this.defaultPermissionMode,
     })
     
     this.log(`Created session: ${sessionId}`)
@@ -73,8 +77,10 @@ export class ClaudeACPAgent implements Agent {
     this.log(`Loading session: ${params.sessionId}`)
     
     // Check if we already have this session
-    if (this.sessions.has(params.sessionId)) {
-      this.log(`Session ${params.sessionId} already exists, reusing it`)
+    const existingSession = this.sessions.get(params.sessionId)
+    if (existingSession) {
+      this.log(`Session ${params.sessionId} already exists with Claude session_id: ${existingSession.claudeSessionId}`)
+      // Keep the existing session with its Claude session_id intact
       return null  // Return null to indicate success
     }
     
@@ -84,6 +90,7 @@ export class ClaudeACPAgent implements Agent {
       pendingPrompt: null,
       abortController: null,
       claudeSessionId: undefined,
+      permissionMode: this.defaultPermissionMode,
     })
     
     this.log(`Created new session entry for loaded session: ${params.sessionId}`)
@@ -107,7 +114,8 @@ export class ClaudeACPAgent implements Agent {
     }
     
     this.log(`Processing prompt for session: ${currentSessionId}`)
-    this.log(`Session state: claudeSessionId=${session.claudeSessionId}`)
+    this.log(`Session state: claudeSessionId=${session.claudeSessionId}, pendingPrompt=${!!session.pendingPrompt}, abortController=${!!session.abortController}`)
+    this.log(`Available sessions: ${Array.from(this.sessions.keys()).join(', ')}`)
     
     // Cancel any pending prompt
     if (session.abortController) {
@@ -136,14 +144,31 @@ export class ClaudeACPAgent implements Agent {
         this.log(`Resuming Claude session: ${session.claudeSessionId}`)
       }
       
+      // Check for permission mode hints in the prompt
+      let permissionMode = session.permissionMode || this.defaultPermissionMode
+      
+      // Allow dynamic permission mode switching via special commands
+      if (promptText.includes('[ACP:PERMISSION:ACCEPT_EDITS]')) {
+        permissionMode = 'acceptEdits'
+        session.permissionMode = 'acceptEdits'
+      } else if (promptText.includes('[ACP:PERMISSION:BYPASS]')) {
+        permissionMode = 'bypassPermissions'
+        session.permissionMode = 'bypassPermissions'
+      } else if (promptText.includes('[ACP:PERMISSION:DEFAULT]')) {
+        permissionMode = 'default'
+        session.permissionMode = 'default'
+      }
+      
+      this.log(`Using permission mode: ${permissionMode}`)
+      
       // Start Claude query
       const messages = query({
         prompt: queryInput,
         options: {
           maxTurns: 10,
-          permissionMode: 'default',
+          permissionMode: permissionMode,
           // Resume if we have a Claude session_id
-          resume: session.claudeSessionId
+          resume: session.claudeSessionId || undefined
         }
       })
       
@@ -160,25 +185,40 @@ export class ClaudeACPAgent implements Agent {
         messageCount++
         this.log(`Processing message #${messageCount} of type: ${(message as SDKMessage).type}`)
         
-        // Extract and store Claude's session_id if we don't have it yet
+        // Extract and store Claude's session_id from any message that has it
         const sdkMessage = message as SDKMessage
-        if (!session.claudeSessionId && 'session_id' in sdkMessage && typeof sdkMessage.session_id === 'string') {
-          session.claudeSessionId = sdkMessage.session_id
-          this.log(`Stored Claude session_id: ${session.claudeSessionId}`)
+        if ('session_id' in sdkMessage && typeof sdkMessage.session_id === 'string' && sdkMessage.session_id) {
+          if (session.claudeSessionId !== sdkMessage.session_id) {
+            this.log(`Updating Claude session_id from ${session.claudeSessionId} to ${sdkMessage.session_id}`)
+            session.claudeSessionId = sdkMessage.session_id
+            // Update the session in the map to ensure persistence
+            this.sessions.set(currentSessionId, session)
+          }
         }
         
-        // Log message type for debugging
+        // Log message type and content for debugging
         if (sdkMessage.type === 'user') {
           this.log(`Processing user message`)
         } else if (sdkMessage.type === 'assistant') {
           this.log(`Processing assistant message`)
+          // Log assistant message content for debugging
+          if ('message' in sdkMessage && sdkMessage.message) {
+            const assistantMsg = sdkMessage.message as { content?: Array<{ type: string; text?: string }> }
+            if (assistantMsg.content) {
+              this.log(`Assistant content: ${JSON.stringify(assistantMsg.content).substring(0, 200)}`)
+            }
+          }
         }
         
         await this.handleClaudeMessage(currentSessionId, message as ClaudeMessage)
       }
       
       this.log(`Processed ${messageCount} messages total`)
+      this.log(`Final Claude session_id: ${session.claudeSessionId}`)
       session.pendingPrompt = null
+      
+      // Ensure the session is properly saved with the Claude session_id
+      this.sessions.set(currentSessionId, session)
       
       return {
         stopReason: 'end_turn',
@@ -237,23 +277,80 @@ export class ClaudeACPAgent implements Agent {
         // System messages are internal, don't send to client
         break
         
+      case 'user':
+        // Handle user message echo from Claude (for context)
+        this.log('User message echoed from Claude')
+        // User messages are already known to the client, don't send back
+        break
+        
       case 'assistant':
         // Handle assistant message from Claude
         if (msg.message && msg.message.content) {
           for (const content of msg.message.content) {
             if (content.type === 'text') {
+              // Send text content without adding extra newlines
+              // Claude already formats the text properly
               await this.client.sessionUpdate({
                 sessionId,
                 update: {
                   sessionUpdate: 'agent_message_chunk',
                   content: {
                     type: 'text',
-                    text: (content.text || '') + '\n',
+                    text: content.text || '',
                   },
                 },
               })
+            } else if (content.type === 'tool_use') {
+              // Handle tool_use blocks in assistant messages
+              this.log(`Tool use block in assistant message: ${content.name}, id: ${content.id}`)
+              
+              // Send tool_use information to client
+              await this.client.sessionUpdate({
+                sessionId,
+                update: {
+                  sessionUpdate: 'agent_message_chunk',
+                  content: {
+                    type: 'text',
+                    text: `\n[Using tool: ${content.name}]\n`,
+                  },
+                },
+              })
+              
+              // If this is TodoWrite, format the todos nicely
+              if (content.name === 'TodoWrite' && content.input?.todos) {
+                const todos = content.input.todos as Array<{content: string, status: string, activeForm: string}>
+                let todoText = '📝 Todo List:\n'
+                todos.forEach((todo, index) => {
+                  const statusEmoji = todo.status === 'completed' ? '✅' : 
+                                     todo.status === 'in_progress' ? '🔄' : '⏳'
+                  todoText += `${index + 1}. ${statusEmoji} ${todo.content}\n`
+                })
+                
+                await this.client.sessionUpdate({
+                  sessionId,
+                  update: {
+                    sessionUpdate: 'agent_message_chunk',
+                    content: {
+                      type: 'text',
+                      text: todoText + '\n',
+                    },
+                  },
+                })
+              }
             }
           }
+        } else if ('text' in msg && typeof msg.text === 'string') {
+          // Handle direct text in assistant message
+          await this.client.sessionUpdate({
+            sessionId,
+            update: {
+              sessionUpdate: 'agent_message_chunk',
+              content: {
+                type: 'text',
+                text: msg.text,
+              },
+            },
+          })
         }
         break
         
@@ -263,13 +360,14 @@ export class ClaudeACPAgent implements Agent {
         break
         
       case 'text':
+        // Direct text messages - preserve formatting without extra newlines
         await this.client.sessionUpdate({
           sessionId,
           update: {
             sessionUpdate: 'agent_message_chunk',
             content: {
               type: 'text',
-              text: (msg.text || '') + '\n',
+              text: msg.text || '',
             },
           },
         })
@@ -312,6 +410,30 @@ export class ClaudeACPAgent implements Agent {
             rawInput: input as Record<string, unknown>,
           },
         })
+        
+        // For TodoWrite tool, also send formatted todo list as text
+        if (msg.tool_name === 'TodoWrite' && input && typeof input === 'object' && 'todos' in input) {
+          const todos = (input as {todos: Array<{content: string, status: string, activeForm: string}>}).todos
+          if (todos && Array.isArray(todos)) {
+            let todoText = '\n📝 Todo List Update:\n'
+            todos.forEach((todo, index) => {
+              const statusEmoji = todo.status === 'completed' ? '✅' : 
+                                 todo.status === 'in_progress' ? '🔄' : '⏳'
+              todoText += `  ${index + 1}. ${statusEmoji} ${todo.content}\n`
+            })
+            
+            await this.client.sessionUpdate({
+              sessionId,
+              update: {
+                sessionUpdate: 'agent_message_chunk',
+                content: {
+                  type: 'text',
+                  text: todoText,
+                },
+              },
+            })
+          }
+        }
         break
       }
         
@@ -333,7 +455,7 @@ export class ClaudeACPAgent implements Agent {
                 type: 'content',
                 content: {
                   type: 'text',
-                  text: outputText + '\n',
+                  text: outputText,
                 },
               },
             ],
@@ -391,23 +513,14 @@ export class ClaudeACPAgent implements Agent {
             },
           })
         } else if (event.type === 'content_block_stop') {
-          // Add newline when content block ends
-          await this.client.sessionUpdate({
-            sessionId,
-            update: {
-              sessionUpdate: 'agent_message_chunk',
-              content: {
-                type: 'text',
-                text: '\n',
-              },
-            },
-          })
+          // Content block ended - Claude handles its own formatting
+          this.log('Content block stopped')
         }
         break
       }
         
       default:
-        this.log(`Unhandled message type: ${messageType}`)
+        this.log(`Unhandled message type: ${messageType}`, JSON.stringify(message).substring(0, 500))
     }
   }
   
