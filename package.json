@@ -33,6 +33,7 @@
     "dev": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
+    "format": "prettier --experimental-cli --write .",
     "prepublishOnly": "pnpm run build",
     "prepare": "pnpm run build"
   },
@@ -61,6 +62,7 @@
     "conventional-changelog-conventionalcommits": "8.0.0",
     "eslint": "^9.17.0",
     "globals": "15.14.0",
+    "prettier": "^3.6.2",
     "semantic-release": "24.2.0",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0",

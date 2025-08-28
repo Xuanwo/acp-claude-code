@@ -7,6 +7,7 @@ A bridge implementation that enables Claude Code to work with the Agent Client P
 ## Architecture
 
 This project implements an ACP Agent that wraps the Claude Code SDK, providing:
+
 - **Session persistence**: Maintains conversation context across multiple messages
 - **Streaming responses**: Real-time output from Claude
 - **Tool call support**: Full integration with Claude's tool use capabilities (TODO)
@@ -140,6 +141,7 @@ pnpm run lint
 ## Features
 
 ### Implemented
+
 - ✅ Full ACP protocol implementation
 - ✅ Session persistence with Claude's native session management
 - ✅ Streaming responses
@@ -151,6 +153,7 @@ pnpm run lint
 - ✅ Rich content display (todo lists, tool usage)
 
 ### Planned
+
 - [ ] Image/audio content blocks
 - [ ] Advanced error handling
 - [ ] Session export/import
@@ -173,20 +176,25 @@ The bridge will automatically use the existing Claude Code authentication from `
 The bridge supports different permission modes for Claude's file operations:
 
 ### Available Modes
+
 - **`default`** - Asks for permission on file operations (default)
 - **`acceptEdits`** - Auto-accepts file edits, still asks for other operations (recommended)
 - **`bypassPermissions`** - Bypasses all permission checks (use with caution!)
 
 ### Configuration in Zed
+
 Set the permission mode in your Zed settings.json using the `env` field as shown in the usage examples above.
 
 ### Dynamic Permission Mode Switching
+
 You can also change permission mode during a conversation by including special markers in your prompt:
+
 - `[ACP:PERMISSION:ACCEPT_EDITS]` - Switch to acceptEdits mode
 - `[ACP:PERMISSION:BYPASS]` - Switch to bypassPermissions mode
 - `[ACP:PERMISSION:DEFAULT]` - Switch back to default mode
 
 Example:
+
 ```
 [ACP:PERMISSION:ACCEPT_EDITS]
 Please update all the TypeScript files to use the new API
@@ -202,6 +210,7 @@ ACP_DEBUG=true npx acp-claude-code
 ```
 
 Debug logs will output:
+
 - Session creation and management
 - Message processing
 - Tool call execution
@@ -210,26 +219,33 @@ Debug logs will output:
 ## Troubleshooting
 
 ### Session not persisting
+
 The bridge now correctly maintains session context using Claude's native session management. Each ACP session maps to a Claude session that persists throughout the conversation.
 
 ### "Claude Code process exited" error
+
 Make sure you're authenticated with Claude Code:
+
 ```bash
 claude setup-token
 ```
 
 ### Tool calls not working
+
 Tool calls are fully supported. Ensure your Zed client is configured to handle tool call updates properly.
 
 ## Technical Details
 
 ### Session Management
+
 The bridge uses a two-step session management approach:
+
 1. Creates an ACP session ID initially
 2. On first message, obtains and stores Claude's session ID
 3. Uses Claude's `resume` parameter for subsequent messages to maintain context
 
 ### Message Flow
+
 1. **Client → Agent**: ACP protocol messages
 2. **Agent → Claude SDK**: Converted to Claude SDK format with session resume
 3. **Claude SDK → Agent**: Stream of response messages
