@@ -2,7 +2,7 @@
   "name": "acp-claude-code",
   "version": "0.5.0",
   "description": "ACP (Agent Client Protocol) bridge for Claude Code",
-  "main": "dist/index.js",
+  "main": "dist/cli.js",
   "type": "module",
   "bin": {
     "acp-claude-code": "dist/cli.js"
@@ -29,8 +29,8 @@
   },
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js",
-    "dev": "tsx src/index.ts",
+    "start": "node dist/cli.js",
+    "dev": "tsx src/cli.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "format": "prettier --experimental-cli --write .",
