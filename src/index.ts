@@ -69,4 +69,4 @@ export async function main() {
   }
 }
 
-export { ClaudeACPAgent, main }
+export { ClaudeACPAgent }
