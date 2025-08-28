@@ -81,7 +81,7 @@ export class ClaudeACPAgent implements Agent {
     };
   }
 
-  async loadSession?(params: LoadSessionRequest): Promise<LoadSessionResponse> {
+  async loadSession?(params: LoadSessionRequest): Promise<void> {
     this.log(`Loading session: ${params.sessionId}`);
 
     // Check if we already have this session
@@ -91,7 +91,7 @@ export class ClaudeACPAgent implements Agent {
         `Session ${params.sessionId} already exists with Claude session_id: ${existingSession.claudeSessionId}`,
       );
       // Keep the existing session with its Claude session_id intact
-      return null; // Return null to indicate success
+      return; // Return null to indicate success
     }
 
     // Create a new session entry for this ID if it doesn't exist
@@ -106,7 +106,7 @@ export class ClaudeACPAgent implements Agent {
     this.log(
       `Created new session entry for loaded session: ${params.sessionId}`,
     );
-    return null; // Return null to indicate success
+    return; // Return null to indicate success
   }
 
   async authenticate(_params: AuthenticateRequest): Promise<void> {
