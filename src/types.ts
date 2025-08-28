@@ -15,6 +15,10 @@ export interface ClaudeMessage {
     content?: Array<{
       type: string
       text?: string
+      // For tool_use blocks
+      id?: string
+      name?: string
+      input?: Record<string, unknown>
     }>
   }
   result?: string

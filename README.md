@@ -10,9 +10,11 @@ This project implements an ACP Agent that wraps the Claude Code SDK, providing:
 - **Tool call support**: Full integration with Claude's tool use capabilities (TODO)
 - **Message format conversion**: Seamless translation between ACP and Claude SDK formats
 
-## Usage
+## Usage in Zed
 
-Add to your Zed configuration:
+Add to your Zed settings.json:
+
+### Basic Configuration
 
 ```json
 {
@@ -25,14 +27,72 @@ Add to your Zed configuration:
 }
 ```
 
-Or if you prefer using pnpm:
+### With Permission Mode Configuration
+
+To auto-accept file edits (recommended for better workflow):
+
+```json
+{
+  "agent_servers": {
+    "claude-code": {
+      "command": "npx",
+      "args": ["acp-claude-code"],
+      "env": {
+        "ACP_PERMISSION_MODE": "acceptEdits"
+      }
+    }
+  }
+}
+```
+
+To bypass all permissions (use with caution):
+
+```json
+{
+  "agent_servers": {
+    "claude-code": {
+      "command": "npx",
+      "args": ["acp-claude-code"],
+      "env": {
+        "ACP_PERMISSION_MODE": "bypassPermissions"
+      }
+    }
+  }
+}
+```
+
+### With Debug Logging
+
+For troubleshooting:
+
+```json
+{
+  "agent_servers": {
+    "claude-code": {
+      "command": "npx",
+      "args": ["acp-claude-code"],
+      "env": {
+        "ACP_DEBUG": "true",
+        "ACP_PERMISSION_MODE": "acceptEdits"
+      }
+    }
+  }
+}
+```
+
+### Using pnpm/pnpx
+
+If you prefer pnpm:
 
 ```json
 {
   "agent_servers": {
     "claude-code": {
       "command": "pnpx",
-      "args": ["acp-claude-code"]
+      "args": ["acp-claude-code"],
+      "env": {
+        "ACP_PERMISSION_MODE": "acceptEdits"
+      }
     }
   }
 }
@@ -85,9 +145,10 @@ pnpm run lint
 - ✅ Claude SDK integration
 - ✅ Tool call support with proper status updates
 - ✅ Session loading capability
+- ✅ Permission management with configurable modes
+- ✅ Rich content display (todo lists, tool usage)
 
 ### Planned
-- [ ] Permission management
 - [ ] Image/audio content blocks
 - [ ] Advanced error handling
 - [ ] Session export/import
@@ -105,16 +166,40 @@ claude setup-token
 
 The bridge will automatically use the existing Claude Code authentication from `~/.claude/config.json`.
 
+## Permission Modes
+
+The bridge supports different permission modes for Claude's file operations:
+
+### Available Modes
+- **`default`** - Asks for permission on file operations (default)
+- **`acceptEdits`** - Auto-accepts file edits, still asks for other operations (recommended)
+- **`bypassPermissions`** - Bypasses all permission checks (use with caution!)
+
+### Configuration in Zed
+Set the permission mode in your Zed settings.json using the `env` field as shown in the usage examples above.
+
+### Dynamic Permission Mode Switching
+You can also change permission mode during a conversation by including special markers in your prompt:
+- `[ACP:PERMISSION:ACCEPT_EDITS]` - Switch to acceptEdits mode
+- `[ACP:PERMISSION:BYPASS]` - Switch to bypassPermissions mode
+- `[ACP:PERMISSION:DEFAULT]` - Switch back to default mode
+
+Example:
+```
+[ACP:PERMISSION:ACCEPT_EDITS]
+Please update all the TypeScript files to use the new API
+```
+
 ## Debugging
 
-Enable debug logging to troubleshoot issues:
+Debug logging can be enabled in your Zed configuration (see usage examples above) or when running manually:
 
 ```bash
 # Set the debug environment variable
 ACP_DEBUG=true npx acp-claude-code
 ```
 
-This will output detailed logs including:
+Debug logs will output:
 - Session creation and management
 - Message processing
 - Tool call execution
