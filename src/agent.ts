@@ -319,9 +319,34 @@ export class ClaudeACPAgent implements Agent {
         break;
 
       case "user":
-        // Handle user message echo from Claude (for context)
-        this.log("User message echoed from Claude");
-        // User messages are already known to the client, don't send back
+        // Handle user message that may contain tool results
+        if (msg.message && msg.message.content) {
+          for (const content of msg.message.content) {
+            if (content.type === "tool_result") {
+              this.log(`Tool result received for: ${content.tool_use_id}`);
+              
+              // Send tool_call_update with completed status
+              await this.client.sessionUpdate({
+                sessionId,
+                update: {
+                  sessionUpdate: "tool_call_update",
+                  toolCallId: content.tool_use_id || "",
+                  status: "completed",
+                  content: [
+                    {
+                      type: "content",
+                      content: {
+                        type: "text",
+                        text: (content.content || "") + "\n",
+                      },
+                    },
+                  ],
+                  rawOutput: content.content ? { output: content.content } : undefined,
+                },
+              });
+            }
+          }
+        }
         break;
 
       case "assistant":
@@ -347,15 +372,16 @@ export class ClaudeACPAgent implements Agent {
                 `Tool use block in assistant message: ${content.name}, id: ${content.id}`,
               );
 
-              // Send tool_use information to client
+              // Send tool_call notification to client
               await this.client.sessionUpdate({
                 sessionId,
                 update: {
-                  sessionUpdate: "agent_message_chunk",
-                  content: {
-                    type: "text",
-                    text: `\n[Using tool: ${content.name}]\n`,
-                  },
+                  sessionUpdate: "tool_call",
+                  toolCallId: content.id || "",
+                  title: content.name || "Tool",
+                  kind: this.mapToolKind(content.name || ""),
+                  status: "pending",
+                  rawInput: content.input as Record<string, unknown>,
                 },
               });
 
