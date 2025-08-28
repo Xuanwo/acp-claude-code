@@ -50,17 +50,20 @@
     "@zed-industries/agent-client-protocol": "0.1.1"
   },
   "devDependencies": {
+    "@eslint/js": "9.17.0",
     "@semantic-release/changelog": "6.0.3",
     "@semantic-release/git": "10.0.1",
     "@semantic-release/github": "11.0.1",
     "@semantic-release/npm": "12.0.1",
     "@types/node": "^24.3.0",
-    "@typescript-eslint/eslint-plugin": "^7.0.0",
-    "@typescript-eslint/parser": "^7.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.20.0",
+    "@typescript-eslint/parser": "^8.20.0",
     "conventional-changelog-conventionalcommits": "8.0.0",
-    "eslint": "^8.0.0",
+    "eslint": "^9.17.0",
+    "globals": "15.14.0",
     "semantic-release": "24.2.0",
     "tsx": "^4.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "typescript-eslint": "8.20.0"
   }
 }
