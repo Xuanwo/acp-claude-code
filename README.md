@@ -230,6 +230,31 @@ Make sure you're authenticated with Claude Code:
 claude setup-token
 ```
 
+### "Claude Code executable not found" error
+
+If you encounter an error about the Claude Code executable not being found, you can specify the path explicitly using environment variables:
+
+```json
+{
+  "agent_servers": {
+    "claude-code": {
+      "command": "npx",
+      "args": ["acp-claude-code"],
+      "env": {
+        "CLAUDE_CODE_EXECUTABLE_PATH": "/Users/YOUR_USERNAME/.local/bin/claude"
+      }
+    }
+  }
+}
+```
+
+To find your Claude executable path:
+```bash
+which claude
+```
+
+You can also use the alternative environment variable `ACP_CLAUDE_EXECUTABLE_PATH`.
+
 ### Tool calls not working
 
 Tool calls are fully supported. Ensure your Zed client is configured to handle tool call updates properly.

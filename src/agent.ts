@@ -13,7 +13,6 @@ import {
   PromptResponse,
   CancelNotification,
   LoadSessionRequest,
-  LoadSessionResponse,
 } from "@zed-industries/agent-client-protocol";
 import type { ClaudeMessage, ClaudeStreamEvent } from "./types.js";
 
@@ -37,9 +36,15 @@ export class ClaudeACPAgent implements Agent {
       | "acceptEdits"
       | "bypassPermissions"
       | "plan") || "default";
+  private claudeExecutablePath: string | undefined =
+    process.env.CLAUDE_CODE_EXECUTABLE_PATH ||
+    process.env.ACP_CLAUDE_EXECUTABLE_PATH;
 
   constructor(private client: Client) {
     this.log("Initialized with client");
+    if (this.claudeExecutablePath) {
+      this.log(`Using custom Claude executable path: ${this.claudeExecutablePath}`);
+    }
   }
 
   private log(message: string, ...args: unknown[]) {
@@ -190,6 +195,8 @@ export class ClaudeACPAgent implements Agent {
           permissionMode: permissionMode,
           // Resume if we have a Claude session_id
           resume: session.claudeSessionId || undefined,
+          // Use custom executable path if configured
+          pathToClaudeCodeExecutable: this.claudeExecutablePath,
         },
       });
 
