@@ -13,7 +13,6 @@ import {
   PromptResponse,
   CancelNotification,
   LoadSessionRequest,
-  LoadSessionResponse,
 } from "@zed-industries/agent-client-protocol";
 import type { ClaudeMessage, ClaudeStreamEvent } from "./types.js";
 
@@ -37,6 +36,8 @@ export class ClaudeACPAgent implements Agent {
       | "acceptEdits"
       | "bypassPermissions"
       | "plan") || "default";
+  private pathToClaudeCodeExecutable: string | undefined =
+    process.env.ACP_PATH_TO_CLAUDE_CODE_EXECUTABLE;
 
   constructor(private client: Client) {
     this.log("Initialized with client");
@@ -187,7 +188,8 @@ export class ClaudeACPAgent implements Agent {
         prompt: queryInput,
         options: {
           maxTurns: 10,
-          permissionMode: permissionMode,
+          permissionMode,
+          pathToClaudeCodeExecutable: this.pathToClaudeCodeExecutable,
           // Resume if we have a Claude session_id
           resume: session.claudeSessionId || undefined,
         },

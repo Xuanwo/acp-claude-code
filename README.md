@@ -83,6 +83,25 @@ For troubleshooting:
 }
 ```
 
+### With Custom Claude Code Executable Path
+
+If you need to use a specific Claude Code executable (e.g., development build):
+
+```json
+{
+  "agent_servers": {
+    "claude-code": {
+      "command": "npx",
+      "args": ["acp-claude-code"],
+      "env": {
+        "ACP_PATH_TO_CLAUDE_CODE_EXECUTABLE": "/path/to/your/claude-code",
+        "ACP_PERMISSION_MODE": "acceptEdits"
+      }
+    }
+  }
+}
+```
+
 ### Using pnpm/pnpx
 
 If you prefer pnpm:
@@ -199,6 +218,14 @@ Example:
 [ACP:PERMISSION:ACCEPT_EDITS]
 Please update all the TypeScript files to use the new API
 ```
+
+## Environment Variables
+
+The bridge supports the following environment variables:
+
+- **`ACP_DEBUG`** - Enable debug logging (`true`/`false`)
+- **`ACP_PERMISSION_MODE`** - Set permission mode (`default`/`acceptEdits`/`bypassPermissions`)
+- **`ACP_PATH_TO_CLAUDE_CODE_EXECUTABLE`** - Path to a custom Claude Code executable
 
 ## Debugging
 
