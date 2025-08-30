@@ -14,7 +14,7 @@ import {
   CancelNotification,
   LoadSessionRequest,
 } from "@zed-industries/agent-client-protocol";
-import type { ACPToolCallContent, ACPToolCallRegularContent, ClaudeMessage, ClaudeStreamEvent, ClaudeTodoList } from "./types.js";
+import type { ACPToolCallContent, ACPToolCallRegularContent, ClaudeMessage, ClaudeStreamEvent, ClaudeTodoList, RequestPermissionRequest } from "./types.js";
 import { toAsyncIterable } from "./utils.js";
 
 interface AgentSession {
@@ -24,6 +24,7 @@ interface AgentSession {
   permissionMode?: "default" | "acceptEdits" | "bypassPermissions" | "plan"; // Permission mode for this session
   todoWriteToolCallIds: Set<string>; // Set of tool_call_id for todo_write tool
   toolCallContents: Map<string, ACPToolCallContent[]>; // Map of tool_call_id to tool call content
+  toolCallIds: Map<string | undefined, string | undefined>; // Map of tool name to tool call ID
 }
 
 export class ClaudeACPAgent implements Agent {
@@ -83,6 +84,7 @@ export class ClaudeACPAgent implements Agent {
       permissionMode: this.defaultPermissionMode,
       todoWriteToolCallIds: new Set(),
       toolCallContents: new Map(),
+      toolCallIds: new Map(),
     });
 
     this.log(`Created session: ${sessionId}`);
@@ -114,6 +116,7 @@ export class ClaudeACPAgent implements Agent {
       permissionMode: this.defaultPermissionMode,
       todoWriteToolCallIds: new Set(),
       toolCallContents: new Map(),
+      toolCallIds: new Map(),
     });
 
     this.log(
@@ -154,6 +157,8 @@ export class ClaudeACPAgent implements Agent {
     }
 
     session.abortController = new AbortController();
+
+    let allowAlways = false;
 
     try {
       const userMessage = {
@@ -238,6 +243,49 @@ export class ClaudeACPAgent implements Agent {
           pathToClaudeCodeExecutable: this.pathToClaudeCodeExecutable,
           // Resume if we have a Claude session_id
           resume: session.claudeSessionId || undefined,
+          canUseTool: async (toolName: string, input: Record<string, unknown>) => {
+            if (allowAlways) {
+              return { behavior: 'allow', updatedInput: input };
+            }
+
+            const toolCallId = session.toolCallIds.get(toolName);
+            const permissionOptions: RequestPermissionRequest['options'] = [
+              {
+                optionId: 'allow_always',
+                name: 'Allow Always',
+                kind: 'allow_always',
+              },
+              {
+                optionId: 'allow_once',
+                name: 'Allow',
+                kind: 'allow_once',
+              },
+              {
+                optionId: 'reject',
+                name: 'Reject',
+                kind: 'reject_once',
+              }
+            ];
+            const requestPermissionParams: RequestPermissionRequest = {
+              sessionId: params.sessionId,
+              options: permissionOptions,
+              toolCall: {
+                toolCallId: toolCallId || '',
+              },
+            };
+
+            const output = await this.client.requestPermission(requestPermissionParams);
+
+            if (output.outcome.outcome === 'cancelled') {
+              return { behavior: 'deny', message: 'User cancelled' };
+            }
+
+            if (output.outcome.optionId === 'allow_always') {
+              allowAlways = true;
+            }
+
+            return { behavior: 'allow', updatedInput: input };
+          },
         },
       });
 
@@ -435,6 +483,7 @@ export class ClaudeACPAgent implements Agent {
                 `Tool use block in assistant message: ${content.name}, id: ${content.id}`,
               );
 
+              session?.toolCallIds.set(content.name, content.id);
               if (content.name === "TodoWrite" && content.input?.todos) {
                 session?.todoWriteToolCallIds.add(content.id || "");
                 const todos = content.input.todos as ClaudeTodoList;
