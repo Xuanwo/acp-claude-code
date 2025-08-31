@@ -22,7 +22,7 @@ Add to your Zed settings.json:
 ```json
 {
   "agent_servers": {
-    "claude-code": {
+    "Claude Code": {
       "command": "npx",
       "args": ["acp-claude-code"]
     }
@@ -37,7 +37,7 @@ To auto-accept file edits (recommended for better workflow):
 ```json
 {
   "agent_servers": {
-    "claude-code": {
+    "Claude Code": {
       "command": "npx",
       "args": ["acp-claude-code"],
       "env": {
@@ -53,7 +53,7 @@ To bypass all permissions (use with caution):
 ```json
 {
   "agent_servers": {
-    "claude-code": {
+    "Claude Code": {
       "command": "npx",
       "args": ["acp-claude-code"],
       "env": {
@@ -71,7 +71,7 @@ For troubleshooting:
 ```json
 {
   "agent_servers": {
-    "claude-code": {
+    "Claude Code": {
       "command": "npx",
       "args": ["acp-claude-code"],
       "env": {
@@ -90,7 +90,7 @@ If you need to use a specific Claude Code executable (e.g., development build):
 ```json
 {
   "agent_servers": {
-    "claude-code": {
+    "Claude Code": {
       "command": "npx",
       "args": ["acp-claude-code"],
       "env": {
@@ -109,7 +109,7 @@ If you prefer pnpm:
 ```json
 {
   "agent_servers": {
-    "claude-code": {
+    "Claude Code": {
       "command": "pnpx",
       "args": ["acp-claude-code"],
       "env": {
