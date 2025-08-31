@@ -1,6 +1,6 @@
 {
   "name": "acp-claude-code",
-  "version": "0.5.4",
+  "version": "0.6.0",
   "description": "ACP (Agent Client Protocol) bridge for Claude Code",
   "main": "dist/cli.js",
   "type": "module",

@@ -1,3 +1,9 @@
+## [0.6.0](https://github.com/xuanwo/acp-claude-code/compare/v0.5.4...v0.6.0) (2025-08-31)
+
+### Features
+
+* support agent plan ([#51](https://github.com/xuanwo/acp-claude-code/issues/51)) ([a5c94d5](https://github.com/xuanwo/acp-claude-code/commit/a5c94d5e91cd35d1b9878ba8c0a7a6065c83faa4))
+
 ## [0.5.4](https://github.com/xuanwo/acp-claude-code/compare/v0.5.3...v0.5.4) (2025-08-30)
 
 ### Bug Fixes
