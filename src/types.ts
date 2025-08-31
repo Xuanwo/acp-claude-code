@@ -46,3 +46,11 @@ export interface ClaudeQueryOptions {
   permissionMode?: "ask_on_edit" | "ask_always" | "auto" | "default";
   onStatus?: (status: string) => void;
 }
+
+// type from https://github.com/Yuyz0112/claude-code-reverse/blob/c0d99ea1ab7168c12ba74838cfea355ce10f6c56/results/tools/TodoWrite.tool.yaml#L242-L259
+export type ClaudeTodoList =  Array<{
+  id: string;
+  content: string;
+  status: "pending" | "in_progress" | "completed";
+  priority: "high" | "medium" | "low";
+}>

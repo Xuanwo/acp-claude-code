@@ -14,13 +14,14 @@ import {
   CancelNotification,
   LoadSessionRequest,
 } from "@zed-industries/agent-client-protocol";
-import type { ClaudeMessage, ClaudeStreamEvent } from "./types.js";
+import type { ClaudeMessage, ClaudeStreamEvent, ClaudeTodoList } from "./types.js";
 
 interface AgentSession {
   pendingPrompt: AsyncIterableIterator<SDKMessage> | null;
   abortController: AbortController | null;
   claudeSessionId?: string; // Claude's actual session_id, obtained after first message
   permissionMode?: "default" | "acceptEdits" | "bypassPermissions" | "plan"; // Permission mode for this session
+  todoWriteToolCallIds: Set<string>; // Set of tool_call_id for todo_write tool
 }
 
 export class ClaudeACPAgent implements Agent {
@@ -73,6 +74,7 @@ export class ClaudeACPAgent implements Agent {
       abortController: null,
       claudeSessionId: undefined, // Will be set after first message
       permissionMode: this.defaultPermissionMode,
+      todoWriteToolCallIds: new Set(),
     });
 
     this.log(`Created session: ${sessionId}`);
@@ -102,6 +104,7 @@ export class ClaudeACPAgent implements Agent {
       abortController: null,
       claudeSessionId: undefined,
       permissionMode: this.defaultPermissionMode,
+      todoWriteToolCallIds: new Set(),
     });
 
     this.log(
@@ -303,6 +306,24 @@ export class ClaudeACPAgent implements Agent {
     }
   }
 
+  private async sendAgentPlan(sessionId: string, todos: ClaudeTodoList): Promise<void> {
+    // The status and priority of ACP plan entry can directly correspond to the status and priority in claude-code todo, just need to remove the todo id.
+    const planEntries = todos.map((todo) => {
+      return {
+        content: todo.content,
+        status: todo.status,
+        priority: todo.priority,
+      };
+    });
+    await this.client.sessionUpdate({
+      sessionId,
+      update: {
+        sessionUpdate: "plan",
+        entries: planEntries,
+      },
+    });
+  }
+
   private async handleClaudeMessage(
     sessionId: string,
     message: ClaudeMessage | SDKMessage,
@@ -326,6 +347,11 @@ export class ClaudeACPAgent implements Agent {
           for (const content of msg.message.content) {
             if (content.type === "tool_result") {
               this.log(`Tool result received for: ${content.tool_use_id}`);
+
+              const session = this.sessions.get(sessionId);
+              if (session && content.tool_use_id && session.todoWriteToolCallIds.has(content.tool_use_id)) {
+                continue;
+              }
               
               // Send tool_call_update with completed status
               await this.client.sessionUpdate({
@@ -374,45 +400,24 @@ export class ClaudeACPAgent implements Agent {
                 `Tool use block in assistant message: ${content.name}, id: ${content.id}`,
               );
 
-              // Send tool_call notification to client
-              await this.client.sessionUpdate({
-                sessionId,
-                update: {
-                  sessionUpdate: "tool_call",
-                  toolCallId: content.id || "",
-                  title: content.name || "Tool",
-                  kind: this.mapToolKind(content.name || ""),
-                  status: "pending",
-                  rawInput: content.input as Record<string, unknown>,
-                },
-              });
-
-              // If this is TodoWrite, format the todos nicely
               if (content.name === "TodoWrite" && content.input?.todos) {
-                const todos = content.input.todos as Array<{
-                  content: string;
-                  status: string;
-                  activeForm: string;
-                }>;
-                let todoText = "📝 Todo List:\n";
-                todos.forEach((todo, index) => {
-                  const statusEmoji =
-                    todo.status === "completed"
-                      ? "✅"
-                      : todo.status === "in_progress"
-                        ? "🔄"
-                        : "⏳";
-                  todoText += `${index + 1}. ${statusEmoji} ${todo.content}\n`;
-                });
-
+                const session = this.sessions.get(sessionId);
+                if (session) {
+                  session.todoWriteToolCallIds.add(content.id || "");
+                }
+                const todos = content.input.todos as ClaudeTodoList;
+                await this.sendAgentPlan(sessionId, todos);
+              } else {
+                // Send tool_call notification to client
                 await this.client.sessionUpdate({
                   sessionId,
                   update: {
-                    sessionUpdate: "agent_message_chunk",
-                    content: {
-                      type: "text",
-                      text: todoText + "\n",
-                    },
+                    sessionUpdate: "tool_call",
+                    toolCallId: content.id || "",
+                    title: content.name || "Tool",
+                    kind: this.mapToolKind(content.name || ""),
+                    status: "pending",
+                    rawInput: content.input as Record<string, unknown>,
                   },
                 });
               }
@@ -479,20 +484,6 @@ export class ClaudeACPAgent implements Agent {
           }
         }
 
-        await this.client.sessionUpdate({
-          sessionId,
-          update: {
-            sessionUpdate: "tool_call",
-            toolCallId: msg.id || "",
-            title: msg.tool_name || "Tool",
-            kind: this.mapToolKind(msg.tool_name || ""),
-            status: "pending",
-            // Pass the input directly without extra processing
-            rawInput: input as Record<string, unknown>,
-          },
-        });
-
-        // For TodoWrite tool, also send formatted todo list as text
         if (
           msg.tool_name === "TodoWrite" &&
           input &&
@@ -501,36 +492,29 @@ export class ClaudeACPAgent implements Agent {
         ) {
           const todos = (
             input as {
-              todos: Array<{
-                content: string;
-                status: string;
-                activeForm: string;
-              }>;
+              todos: ClaudeTodoList;
             }
           ).todos;
           if (todos && Array.isArray(todos)) {
-            let todoText = "\n📝 Todo List Update:\n";
-            todos.forEach((todo, index) => {
-              const statusEmoji =
-                todo.status === "completed"
-                  ? "✅"
-                  : todo.status === "in_progress"
-                    ? "🔄"
-                    : "⏳";
-              todoText += `  ${index + 1}. ${statusEmoji} ${todo.content}\n`;
-            });
-
-            await this.client.sessionUpdate({
-              sessionId,
-              update: {
-                sessionUpdate: "agent_message_chunk",
-                content: {
-                  type: "text",
-                  text: todoText,
-                },
-              },
-            });
+            const session = this.sessions.get(sessionId);
+            if (session) {
+              session.todoWriteToolCallIds.add(msg.id || "");
+            }
+            await this.sendAgentPlan(sessionId, todos);
           }
+        } else {
+          await this.client.sessionUpdate({
+            sessionId,
+            update: {
+              sessionUpdate: "tool_call",
+              toolCallId: msg.id || "",
+              title: msg.tool_name || "Tool",
+              kind: this.mapToolKind(msg.tool_name || ""),
+              status: "pending",
+              // Pass the input directly without extra processing
+              rawInput: input as Record<string, unknown>,
+            },
+          });
         }
         break;
       }
@@ -541,6 +525,11 @@ export class ClaudeACPAgent implements Agent {
         // Log the tool output for debugging
         this.log(`Tool call completed: ${msg.id}`);
         this.log(`Tool output length: ${outputText.length} characters`);
+
+        const session = this.sessions.get(sessionId);
+        if (session && msg.id && session.todoWriteToolCallIds.has(msg.id)) {
+          break;
+        }
 
         await this.client.sessionUpdate({
           sessionId,
