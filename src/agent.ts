@@ -14,7 +14,7 @@ import {
   CancelNotification,
   LoadSessionRequest,
 } from "@zed-industries/agent-client-protocol";
-import type { ClaudeMessage, ClaudeStreamEvent, ClaudeTodoList } from "./types.js";
+import type { ACPToolCallContent, ACPToolCallRegularContent, ClaudeMessage, ClaudeStreamEvent, ClaudeTodoList } from "./types.js";
 
 interface AgentSession {
   pendingPrompt: AsyncIterableIterator<SDKMessage> | null;
@@ -22,6 +22,7 @@ interface AgentSession {
   claudeSessionId?: string; // Claude's actual session_id, obtained after first message
   permissionMode?: "default" | "acceptEdits" | "bypassPermissions" | "plan"; // Permission mode for this session
   todoWriteToolCallIds: Set<string>; // Set of tool_call_id for todo_write tool
+  toolCallContents: Map<string, ACPToolCallContent[]>; // Map of tool_call_id to tool call content
 }
 
 export class ClaudeACPAgent implements Agent {
@@ -75,6 +76,7 @@ export class ClaudeACPAgent implements Agent {
       claudeSessionId: undefined, // Will be set after first message
       permissionMode: this.defaultPermissionMode,
       todoWriteToolCallIds: new Set(),
+      toolCallContents: new Map(),
     });
 
     this.log(`Created session: ${sessionId}`);
@@ -105,6 +107,7 @@ export class ClaudeACPAgent implements Agent {
       claudeSessionId: undefined,
       permissionMode: this.defaultPermissionMode,
       todoWriteToolCallIds: new Set(),
+      toolCallContents: new Map(),
     });
 
     this.log(
@@ -336,6 +339,8 @@ export class ClaudeACPAgent implements Agent {
       JSON.stringify(message).substring(0, 200),
     );
 
+    const session = this.sessions.get(sessionId);
+
     switch (messageType) {
       case "system":
         // System messages are internal, don't send to client
@@ -348,11 +353,22 @@ export class ClaudeACPAgent implements Agent {
             if (content.type === "tool_result") {
               this.log(`Tool result received for: ${content.tool_use_id}`);
 
-              const session = this.sessions.get(sessionId);
-              if (session && content.tool_use_id && session.todoWriteToolCallIds.has(content.tool_use_id)) {
+              if (content.tool_use_id && session?.todoWriteToolCallIds.has(content.tool_use_id)) {
                 continue;
               }
-              
+
+              const newContent: ACPToolCallRegularContent = {
+                type: "content",
+                content: {
+                  type: "text",
+                  text: (content.content || "") + "\n",
+                },
+              }
+
+              const prevToolCallContent = session?.toolCallContents.get(content.tool_use_id || "") || [];
+              const toolCallContent = [...prevToolCallContent, newContent];
+              session?.toolCallContents.set(content.tool_use_id || "", toolCallContent);
+
               // Send tool_call_update with completed status
               await this.client.sessionUpdate({
                 sessionId,
@@ -360,15 +376,7 @@ export class ClaudeACPAgent implements Agent {
                   sessionUpdate: "tool_call_update",
                   toolCallId: content.tool_use_id || "",
                   status: "completed",
-                  content: [
-                    {
-                      type: "content",
-                      content: {
-                        type: "text",
-                        text: (content.content || "") + "\n",
-                      },
-                    },
-                  ],
+                  content: toolCallContent,
                   rawOutput: content.content ? { output: content.content } : undefined,
                 },
               });
@@ -401,13 +409,12 @@ export class ClaudeACPAgent implements Agent {
               );
 
               if (content.name === "TodoWrite" && content.input?.todos) {
-                const session = this.sessions.get(sessionId);
-                if (session) {
-                  session.todoWriteToolCallIds.add(content.id || "");
-                }
+                session?.todoWriteToolCallIds.add(content.id || "");
                 const todos = content.input.todos as ClaudeTodoList;
                 await this.sendAgentPlan(sessionId, todos);
               } else {
+                const toolCallContent = this.getToolCallContent(content.name || "", content.input as Record<string, unknown>);
+                session?.toolCallContents.set(content.id || "", toolCallContent);
                 // Send tool_call notification to client
                 await this.client.sessionUpdate({
                   sessionId,
@@ -417,6 +424,7 @@ export class ClaudeACPAgent implements Agent {
                     title: content.name || "Tool",
                     kind: this.mapToolKind(content.name || ""),
                     status: "pending",
+                    content: toolCallContent,
                     rawInput: content.input as Record<string, unknown>,
                   },
                 });
@@ -496,13 +504,13 @@ export class ClaudeACPAgent implements Agent {
             }
           ).todos;
           if (todos && Array.isArray(todos)) {
-            const session = this.sessions.get(sessionId);
-            if (session) {
-              session.todoWriteToolCallIds.add(msg.id || "");
-            }
+            session?.todoWriteToolCallIds.add(msg.id || "");
             await this.sendAgentPlan(sessionId, todos);
           }
         } else {
+          const toolCallContent = this.getToolCallContent(msg.tool_name || "", input as Record<string, unknown>);
+          session?.toolCallContents.set(msg.id || "", toolCallContent);
+
           await this.client.sessionUpdate({
             sessionId,
             update: {
@@ -511,6 +519,7 @@ export class ClaudeACPAgent implements Agent {
               title: msg.tool_name || "Tool",
               kind: this.mapToolKind(msg.tool_name || ""),
               status: "pending",
+              content: toolCallContent,
               // Pass the input directly without extra processing
               rawInput: input as Record<string, unknown>,
             },
@@ -526,10 +535,20 @@ export class ClaudeACPAgent implements Agent {
         this.log(`Tool call completed: ${msg.id}`);
         this.log(`Tool output length: ${outputText.length} characters`);
 
-        const session = this.sessions.get(sessionId);
-        if (session && msg.id && session.todoWriteToolCallIds.has(msg.id)) {
+        if (msg.id && session?.todoWriteToolCallIds.has(msg.id)) {
           break;
         }
+
+        const newContent: ACPToolCallRegularContent = {
+          type: "content",
+          content: {
+            type: "text",
+            text: outputText,
+          },
+        }
+        const prevToolCallContent = session?.toolCallContents.get(msg.id || "") || [];
+        const toolCallContent = [...prevToolCallContent, newContent];
+        session?.toolCallContents.set(msg.id || "", toolCallContent);
 
         await this.client.sessionUpdate({
           sessionId,
@@ -537,15 +556,7 @@ export class ClaudeACPAgent implements Agent {
             sessionUpdate: "tool_call_update",
             toolCallId: msg.id || "",
             status: "completed",
-            content: [
-              {
-                type: "content",
-                content: {
-                  type: "text",
-                  text: outputText,
-                },
-              },
-            ],
+            content: toolCallContent,
             // Pass output directly without extra wrapping
             rawOutput: msg.output ? { output: outputText } : undefined,
           },
@@ -670,5 +681,38 @@ export class ClaudeACPAgent implements Agent {
     } else {
       return "other";
     }
+  }
+
+  private getToolCallContent(toolName: string, toolInput: Record<string, unknown>): ACPToolCallContent[] {
+    const result: ACPToolCallContent[] = [];
+    switch (toolName) {
+      case "Edit": {
+        if (toolInput.file_path && toolInput.old_string && toolInput.new_string) {
+          result.push({
+            type: "diff",
+            path: toolInput.file_path as string,
+            oldText: toolInput.old_string as string,
+            newText: toolInput.new_string as string,
+          });
+        }
+        break;
+      };
+      case "MultiEdit": {
+        if (toolInput.file_path && toolInput.edits) {
+          for (const edit of toolInput.edits as Array<{
+            old_string: string;
+            new_string: string;
+          }>) {
+            result.push({
+              type: "diff",
+              path: toolInput.file_path as string,
+              oldText: edit.old_string as string,
+              newText: edit.new_string as string,
+            });
+          }
+        }
+      };
+    };
+    return result;
   }
 }
