@@ -1,3 +1,9 @@
+## [0.8.0](https://github.com/xuanwo/acp-claude-code/compare/v0.7.2...v0.8.0) (2025-09-02)
+
+### Features
+
+* support image content and resource content ([#62](https://github.com/xuanwo/acp-claude-code/issues/62)) ([d55ac27](https://github.com/xuanwo/acp-claude-code/commit/d55ac27611b249db56840bdac6ad5cb7e0c8b694))
+
 ## [0.7.2](https://github.com/xuanwo/acp-claude-code/compare/v0.7.1...v0.7.2) (2025-09-02)
 
 ### Bug Fixes
