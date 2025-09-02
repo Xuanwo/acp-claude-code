@@ -54,3 +54,20 @@ export type ClaudeTodoList =  Array<{
   status: "pending" | "in_progress" | "completed";
   priority: "high" | "medium" | "low";
 }>
+
+export interface ACPToolCallRegularContent {
+  type: "content";
+  content: {
+    type: "text";
+    text: string;
+  };
+}
+
+export interface ACPToolCallDiffContent {
+  type: "diff";
+  path: string;
+  oldText: string;
+  newText: string;
+}
+
+export type ACPToolCallContent = ACPToolCallRegularContent | ACPToolCallDiffContent;
