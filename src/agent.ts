@@ -18,6 +18,7 @@ import type { ACPToolCallContent, ACPToolCallRegularContent, ClaudeMessage, Clau
 import { toAsyncIterable } from "./utils.js";
 
 interface AgentSession {
+  cwd: string;
   pendingPrompt: AsyncIterableIterator<SDKMessage> | null;
   abortController: AbortController | null;
   claudeSessionId?: string; // Claude's actual session_id, obtained after first message
@@ -68,7 +69,7 @@ export class ClaudeACPAgent implements Agent {
     };
   }
 
-  async newSession(_params: NewSessionRequest): Promise<NewSessionResponse> {
+  async newSession(params: NewSessionRequest): Promise<NewSessionResponse> {
     this.log("Creating new session");
 
     // For now, create a temporary session ID
@@ -77,6 +78,7 @@ export class ClaudeACPAgent implements Agent {
     const sessionId = Math.random().toString(36).substring(2);
 
     this.sessions.set(sessionId, {
+      cwd: params.cwd,
       pendingPrompt: null,
       abortController: null,
       claudeSessionId: undefined, // Will be set after first message
@@ -102,12 +104,14 @@ export class ClaudeACPAgent implements Agent {
         `Session ${params.sessionId} already exists with Claude session_id: ${existingSession.claudeSessionId}`,
       );
       // Keep the existing session with its Claude session_id intact
+      // FIXME: Needs to replay the entire conversation
       return; // Return null to indicate success
     }
 
     // Create a new session entry for this ID if it doesn't exist
     // This handles the case where the agent restarts but Zed still has the session ID
     this.sessions.set(params.sessionId, {
+      cwd: params.cwd,
       pendingPrompt: null,
       abortController: null,
       claudeSessionId: undefined,
@@ -234,6 +238,7 @@ export class ClaudeACPAgent implements Agent {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         prompt: toAsyncIterable([userMessage]) as any,
         options: {
+          cwd: session.cwd,
           permissionMode,
           pathToClaudeCodeExecutable: this.pathToClaudeCodeExecutable,
           // Resume if we have a Claude session_id
