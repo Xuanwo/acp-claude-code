@@ -1,3 +1,13 @@
+## [0.7.0](https://github.com/xuanwo/acp-claude-code/compare/v0.6.0...v0.7.0) (2025-09-02)
+
+### Features
+
+* support tool call diff content ([#57](https://github.com/xuanwo/acp-claude-code/issues/57)) ([29a1776](https://github.com/xuanwo/acp-claude-code/commit/29a1776e4f4f0065467562ed90bbb266e9c72da8))
+
+### Miscellaneous
+
+* Use pretty name for agent ([#53](https://github.com/xuanwo/acp-claude-code/issues/53)) ([d33c3d6](https://github.com/xuanwo/acp-claude-code/commit/d33c3d653b68f75e5f74bf238b29f905c14f1bf8))
+
 ## [0.6.0](https://github.com/xuanwo/acp-claude-code/compare/v0.5.4...v0.6.0) (2025-08-31)
 
 ### Features
