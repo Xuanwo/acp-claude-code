@@ -1,3 +1,9 @@
+## [0.7.2](https://github.com/xuanwo/acp-claude-code/compare/v0.7.1...v0.7.2) (2025-09-02)
+
+### Bug Fixes
+
+* compatible with cases where priority is empty ([#61](https://github.com/xuanwo/acp-claude-code/issues/61)) ([6d7b34f](https://github.com/xuanwo/acp-claude-code/commit/6d7b34f15a4bfd88e0e8364677bef10ac6b06d97))
+
 ## [0.7.1](https://github.com/xuanwo/acp-claude-code/compare/v0.7.0...v0.7.1) (2025-09-02)
 
 ### Bug Fixes
