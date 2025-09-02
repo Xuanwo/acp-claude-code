@@ -193,7 +193,6 @@ export class ClaudeACPAgent implements Agent {
       const messages = query({
         prompt: queryInput,
         options: {
-          maxTurns: 10,
           permissionMode,
           pathToClaudeCodeExecutable: this.pathToClaudeCodeExecutable,
           // Resume if we have a Claude session_id
