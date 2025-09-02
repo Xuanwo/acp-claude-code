@@ -314,7 +314,7 @@ export class ClaudeACPAgent implements Agent {
       return {
         content: todo.content,
         status: todo.status,
-        priority: todo.priority,
+        priority: todo.priority ?? "low",
       };
     });
     await this.client.sessionUpdate({
