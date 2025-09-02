@@ -1,5 +1,5 @@
 import { query } from "@anthropic-ai/claude-code";
-import type { SDKMessage } from "@anthropic-ai/claude-code";
+import type { SDKMessage, SDKUserMessage } from "@anthropic-ai/claude-code";
 import {
   Agent,
   Client,
@@ -15,6 +15,7 @@ import {
   LoadSessionRequest,
 } from "@zed-industries/agent-client-protocol";
 import type { ACPToolCallContent, ACPToolCallRegularContent, ClaudeMessage, ClaudeStreamEvent, ClaudeTodoList } from "./types.js";
+import { toAsyncIterable } from "./utils.js";
 
 interface AgentSession {
   pendingPrompt: AsyncIterableIterator<SDKMessage> | null;
@@ -58,6 +59,11 @@ export class ClaudeACPAgent implements Agent {
       protocolVersion: PROTOCOL_VERSION,
       agentCapabilities: {
         loadSession: true, // Enable session loading
+        promptCapabilities: {
+          image: true,
+          audio: false,
+          embeddedContext: true,
+        },
       },
     };
   }
@@ -150,21 +156,55 @@ export class ClaudeACPAgent implements Agent {
     session.abortController = new AbortController();
 
     try {
-      // Convert prompt content blocks to a single string
-      const promptText = params.prompt
-        .filter(
-          (block): block is { type: "text"; text: string } =>
-            block.type === "text",
-        )
-        .map((block) => block.text)
-        .join("");
+      const userMessage = {
+        type: "user",
+        message: {
+          role: "user",
+          content: [] as SDKUserMessage["message"]["content"],
+        },
+      };
+      const textMessagePieces: string[] = [];
+      let imageIdx = 0;
+      for (const block of params.prompt) {
+          if (block.type === "text") {
+            textMessagePieces.push(block.text);
+          }
+          if (block.type === "image") {
+            imageIdx++;
+            textMessagePieces.push(`[Image #${imageIdx}]`);
+            userMessage.message.content.push({
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: block.mimeType,
+                data: block.data,
+              }
+            });
+          }
+          let uri;
+          if (block.type === "resource") {
+            uri = block.resource.uri;
+          }
+          if (block.type === "resource_link") {
+            uri = block.uri;
+          }
+          if (uri) {
+            if (uri.startsWith("file://")) {
+              const filePath = uri.substring(7);
+              textMessagePieces.push("@" + filePath);
+            } else {
+              textMessagePieces.push(uri);
+            }
+          }
+      }
 
-      this.log(
-        `Prompt received (${promptText.length} chars): ${promptText.substring(0, 100)}...`,
-      );
-
-      // Use simple string prompt - Claude SDK will handle history with resume
-      const queryInput = promptText;
+      const promptText = textMessagePieces.join("");
+      if (promptText) {
+        userMessage.message.content.push({
+          type: "text",
+          text: promptText,
+        });
+      }
 
       if (!session.claudeSessionId) {
         this.log("First message for this session, no resume");
@@ -191,7 +231,8 @@ export class ClaudeACPAgent implements Agent {
 
       // Start Claude query
       const messages = query({
-        prompt: queryInput,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        prompt: toAsyncIterable([userMessage]) as any,
         options: {
           permissionMode,
           pathToClaudeCodeExecutable: this.pathToClaudeCodeExecutable,
@@ -217,20 +258,7 @@ export class ClaudeACPAgent implements Agent {
 
         // Extract and store Claude's session_id from any message that has it
         const sdkMessage = message as SDKMessage;
-        if (
-          "session_id" in sdkMessage &&
-          typeof sdkMessage.session_id === "string" &&
-          sdkMessage.session_id
-        ) {
-          if (session.claudeSessionId !== sdkMessage.session_id) {
-            this.log(
-              `Updating Claude session_id from ${session.claudeSessionId} to ${sdkMessage.session_id}`,
-            );
-            session.claudeSessionId = sdkMessage.session_id;
-            // Update the session in the map to ensure persistence
-            this.sessions.set(currentSessionId, session);
-          }
-        }
+        this.tryToStoreClaudeSessionId(currentSessionId, sdkMessage);
 
         // Log message type and content for debugging
         if (sdkMessage.type === "user") {
@@ -713,5 +741,25 @@ export class ClaudeACPAgent implements Agent {
       };
     };
     return result;
+  }
+
+  private tryToStoreClaudeSessionId(sessionId: string, sdkMessage: SDKMessage) {
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      return;
+    }
+    if (
+      "session_id" in sdkMessage &&
+      typeof sdkMessage.session_id === "string" &&
+    sdkMessage.session_id
+    ) {
+      if (session.claudeSessionId !== sdkMessage.session_id) {
+        this.log(
+          `Updating Claude session_id from ${session.claudeSessionId} to ${sdkMessage.session_id}`,
+        );
+        session.claudeSessionId = sdkMessage.session_id;
+        return sdkMessage.session_id;
+      }
+    }
   }
 }

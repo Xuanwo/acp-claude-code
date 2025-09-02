@@ -170,10 +170,12 @@ pnpm run lint
 - ✅ Session loading capability
 - ✅ Permission management with configurable modes
 - ✅ Rich content display (todo lists, tool usage)
+- ✅ Image content blocks
+- ✅ Resource content blocks
 
 ### Planned
 
-- [ ] Image/audio content blocks
+- [ ] Audio content blocks
 - [ ] Advanced error handling
 - [ ] Session export/import
 
