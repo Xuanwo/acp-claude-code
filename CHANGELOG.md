@@ -1,3 +1,9 @@
+## [0.7.1](https://github.com/xuanwo/acp-claude-code/compare/v0.7.0...v0.7.1) (2025-09-02)
+
+### Bug Fixes
+
+* remove maxTurns ([#58](https://github.com/xuanwo/acp-claude-code/issues/58)) ([6cf086c](https://github.com/xuanwo/acp-claude-code/commit/6cf086ce51520f31c0db91f0f9927c28f690f7d7))
+
 ## [0.7.0](https://github.com/xuanwo/acp-claude-code/compare/v0.6.0...v0.7.0) (2025-09-02)
 
 ### Features
