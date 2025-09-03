@@ -2,7 +2,7 @@
 
 A bridge implementation that enables Claude Code to work with the Agent Client Protocol (ACP), allowing it to integrate with Zed editor and other ACP-compatible clients.
 
-**NOTE: Zed team is working on [native support](https://github.com/zed-industries/zed/blob/main/crates/agent_servers/src/claude.rs) now**
+**This project is [deprecated in favor of @zed-industries/claude-code-acp](https://github.com/Xuanwo/acp-claude-code/issues/64). Thank you all for the journey and for making this project fun to work on. Let's build something new together!**
 
 ## Architecture
 
