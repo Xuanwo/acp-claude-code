@@ -10,14 +10,14 @@ importers:
     dependencies:
       '@anthropic-ai/claude-code':
         specifier: latest
-        version: 1.0.98
+        version: 1.0.108
       '@zed-industries/agent-client-protocol':
         specifier: 0.1.2
         version: 0.1.2
     devDependencies:
       '@eslint/js':
-        specifier: 9.17.0
-        version: 9.17.0
+        specifier: 9.35.0
+        version: 9.35.0
       '@semantic-release/changelog':
         specifier: 6.0.3
         version: 6.0.3(semantic-release@24.2.0(typescript@5.9.2))
@@ -66,8 +66,8 @@ importers:
 
 packages:
 
-  '@anthropic-ai/claude-code@1.0.98':
-    resolution: {integrity: sha512-IV193Eh8STdRcN3VkNcojPIlLnQPch+doBVrDSEV1rPPePISy7pzHFZL0Eg7zIPj9gHkHV1D2s0RMMwzVXJThA==}
+  '@anthropic-ai/claude-code@1.0.108':
+    resolution: {integrity: sha512-9CsfjFBsv8N8I69yqdmv0Jcp9Xpp+kQIONZRIKpnEtNUZn3Q61vYyaFTliobJPk9M/tmuXjYCh3VEpLHu9Jotw==}
     engines: {node: '>=18.0.0'}
     hasBin: true
 
@@ -265,12 +265,12 @@ packages:
     resolution: {integrity: sha512-gtF186CXhIl1p4pJNGZw8Yc6RlshoePRvE0X91oPGb3vZ8pM3qOS9W9NGPat9LziaBV7XrJWGylNQXkGcnM3IQ==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
 
-  '@eslint/js@9.17.0':
-    resolution: {integrity: sha512-Sxc4hqcs1kTu0iID3kcZDW3JHq2a77HO9P8CP6YEA/FpH3Ll8UXE2r/86Rz9YJLKme39S9vU5OWNjC6Xl0Cr3w==}
-    engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
-
   '@eslint/js@9.34.0':
     resolution: {integrity: sha512-EoyvqQnBNsV1CWaEJ559rxXL4c8V92gxirbawSmVUOWXlsRxxQXl6LmCpdUblgxgSkDIqKnhzba2SjRTI/A5Rw==}
+    engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+
+  '@eslint/js@9.35.0':
+    resolution: {integrity: sha512-30iXE9whjlILfWobBkNerJo+TXYsgVM5ERQwMcMKCHckHflCmf7wXDAHlARoWnh0s1U72WqlbeyE7iAcCzuCPw==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
 
   '@eslint/object-schema@2.1.6':
@@ -1929,7 +1929,7 @@ packages:
 
 snapshots:
 
-  '@anthropic-ai/claude-code@1.0.98':
+  '@anthropic-ai/claude-code@1.0.108':
     optionalDependencies:
       '@img/sharp-darwin-arm64': 0.33.5
       '@img/sharp-darwin-x64': 0.33.5
@@ -2062,9 +2062,9 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@eslint/js@9.17.0': {}
-
   '@eslint/js@9.34.0': {}
+
+  '@eslint/js@9.35.0': {}
 
   '@eslint/object-schema@2.1.6': {}
 
